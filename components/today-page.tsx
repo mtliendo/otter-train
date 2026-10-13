@@ -581,7 +581,7 @@ function FoodSection({
   }
 
   return (
-    <section className="px-4 pt-5">
+    <section id="food" className="px-4 pt-5">
       <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-stone-400">Food</h2>
       <div className="rounded-2xl border border-ink-700 bg-ink-900 p-3">
         <div className="mb-3">
@@ -622,19 +622,19 @@ function FoodSection({
           ))}
         </div>
 
-        <div className="mt-3 grid grid-cols-[1fr_5rem_auto] gap-2">
+        <div className="mt-3 flex gap-2">
           <input
             value={customName}
             onChange={(event) => setCustomName(event.target.value)}
             placeholder="Free-text food"
-            className="rounded-lg border border-ink-600 bg-ink-950 px-3 py-2 text-sm"
+            className="min-w-0 flex-1 rounded-lg border border-ink-600 bg-ink-950 px-3 py-2 text-sm"
           />
           <input
             inputMode="decimal"
             value={customProtein}
             onChange={(event) => setCustomProtein(event.target.value)}
             placeholder="g"
-            className="rounded-lg border border-ink-600 bg-ink-950 px-3 py-2 text-sm"
+            className="w-16 shrink-0 rounded-lg border border-ink-600 bg-ink-950 px-3 py-2 text-sm"
           />
           <button
             type="button"
@@ -644,7 +644,7 @@ function FoodSection({
               setCustomName("");
               setCustomProtein("");
             }}
-            className="rounded-lg bg-amber-300 px-3 text-sm font-semibold text-ink-950"
+            className="shrink-0 rounded-lg bg-amber-300 px-3 text-sm font-semibold text-ink-950"
           >
             Add
           </button>

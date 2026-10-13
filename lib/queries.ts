@@ -515,5 +515,5 @@ export async function getCalendarMonth(userId: string, year: number, month: numb
     days[row.date] = current;
   }
 
-  return { year, month, days };
+  return { year, month: month + 1, days };
 }

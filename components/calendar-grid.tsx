@@ -58,24 +58,15 @@ export function CalendarGrid({
               }`}
             >
               <span className="font-medium">{day}</span>
-              <span className="mt-1 flex gap-0.5">
-                <Dot on={Boolean(dayMarks?.workout)} className="bg-teal-400" />
-                <Dot on={Boolean(dayMarks?.protein)} className="bg-amber-300" />
-                <Dot on={Boolean(dayMarks?.sleep)} className="bg-violet-400" />
+              <span className="mt-1 flex h-1.5 min-h-1.5 gap-0.5">
+                {dayMarks?.workout ? <span className="h-1.5 w-1.5 rounded-full bg-teal-400" /> : null}
+                {dayMarks?.protein ? <span className="h-1.5 w-1.5 rounded-full bg-amber-300" /> : null}
+                {dayMarks?.sleep ? <span className="h-1.5 w-1.5 rounded-full bg-violet-400" /> : null}
               </span>
             </button>
           );
         })}
       </div>
     </div>
-  );
-}
-
-function Dot({ on, className }: { on: boolean; className: string }) {
-  return (
-    <span
-      className={`h-1.5 w-1.5 rounded-full ${on ? className : "bg-ink-600"}`}
-      aria-hidden
-    />
   );
 }
