@@ -97,14 +97,11 @@ Existing rows stay user-scoped by `user_id`. Local stub data lives under `auth0|
 
 Vercel project: **otter-train** (`prj_C6iYr3rYBdAQoAh3GDMKpLV1zLsD`) on team **Focus Otter's projects**, linked to `mtliendo/otter-train`. Production domain: `https://otter-train.vercel.app`. Do not promote this PR to production.
 
-1. Attach a permanent Neon database (Vercel Marketplace Neon install `icfg_fHYuFQ1Ncfh5ecIOgWYKH0Ao`, plan `free_v3`, region `iad1`, auth off).
-2. Set `DATABASE_URL` and `DATABASE_URL_UNPOOLED` on Production / Preview / Development.
-3. Auth0 vars already expected on the project: `AUTH0_DOMAIN`, `AUTH0_CLIENT_ID`, `AUTH0_SECRET`. Add `AUTH0_CLIENT_SECRET` when you have it. Set production `APP_BASE_URL=https://otter-train.vercel.app` and development `APP_BASE_URL=http://localhost:3000`. Leave Preview `APP_BASE_URL` unset.
-4. After the database is attached, run migrations (seed happens on first login / first stub request):
+Permanent Neon project **otter-train** (`summer-darkness-11061970`, `aws-us-east-1`) is attached on Vercel via `DATABASE_URL` (pooled) and `DATABASE_URL_UNPOOLED` (direct) for Production / Preview / Development. Migrations and the Focus stub seed have been applied. First real Auth0 login still auto-seeds that user's plan.
 
-   ```bash
-   pnpm db:migrate
-   ```
+Auth0 tenant **demo-showcase** / app **otter-train** env vars are already on the Vercel project (`AUTH0_DOMAIN`, `AUTH0_CLIENT_ID`, `AUTH0_CLIENT_SECRET`, `AUTH0_SECRET`). Production `APP_BASE_URL=https://otter-train.vercel.app`; development `APP_BASE_URL=http://localhost:3000`. Leave Preview `APP_BASE_URL` unset so the SDK uses `https://$VERCEL_URL`.
+
+The Auth0 MCP server is **not available** in this Cloud Agent session, and the Auth0 CLI has no tenant login (`no_config`). Callback / logout / web-origin URLs still need to be saved on the otter-train Regular Web Application (values above). `AUTH0_CLIENT_SECRET` was not overwritten.
 
 No tests are included in this MVP.
 
