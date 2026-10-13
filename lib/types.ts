@@ -21,7 +21,7 @@ export type LoggedSet = {
 };
 
 export type DayPayload = {
-  user: { id: string; name: string };
+  user: { id: string; name: string; stub: boolean };
   date: string;
   weekday: number;
   kneeWarning: KneeWarning;

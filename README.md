@@ -20,7 +20,7 @@ This is a mobile-first, dark-mode, installable PWA. There is no public MCP endpo
 - Next.js Route Handlers (`app/api/*`)
 - Neon (Lakebase Postgres) + Drizzle ORM (schema, SQL migrations, seed script)
 - Deploy target: Vercel
-- Auth: stub user today, designed for `@auth0/nextjs-auth0`
+- Auth: `@auth0/nextjs-auth0` v4 (tenant **demo-showcase**, app **otter-train**). Falls back to the Focus stub user until `AUTH0_CLIENT_SECRET` is set.
 
 ## Setup
 
@@ -33,7 +33,7 @@ pnpm db:seed
 pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). The stub user **Focus** is signed in automatically.
+Open [http://localhost:3000](http://localhost:3000). Until `AUTH0_CLIENT_SECRET` is set, the stub user **Focus** is signed in automatically.
 
 ### Database
 
@@ -70,43 +70,41 @@ Copy `.env.example` to `.env.local`.
 | --- | --- | --- |
 | `DATABASE_URL` | yes | Pooled Neon connection string |
 | `DATABASE_URL_UNPOOLED` | recommended | Direct URL for `pnpm db:migrate` |
-| `AUTH_STUB` | no (default `true`) | `true` uses the Focus stub user |
-| `AUTH0_DOMAIN` | for Auth0 swap | Tenant host, e.g. `demo-showcase.us.auth0.com` |
-| `AUTH0_CLIENT_ID` | for Auth0 swap | `CBR8NFocoUkfCCtEPVC9oEciT4s8Ez7E` |
-| `AUTH0_CLIENT_SECRET` | for Auth0 swap | Auth0 application secret |
-| `AUTH0_SECRET` | for Auth0 swap | `openssl rand -hex 32` |
-| `APP_BASE_URL` | for Auth0 swap | `http://localhost:3000` locally; production URL on Vercel |
+| `AUTH_STUB` | no | `true` forces the Focus stub; `false` requires Auth0. If omitted, stub is used only when `AUTH0_CLIENT_SECRET` is missing. |
+| `AUTH0_DOMAIN` | for real login | `demo-showcase.us.auth0.com` |
+| `AUTH0_CLIENT_ID` | for real login | `CBR8NFocoUkfCCtEPVC9oEciT4s8Ez7E` |
+| `AUTH0_CLIENT_SECRET` | for real login | Auth0 application secret (not readable from Auth0 CLI/MCP in this environment) |
+| `AUTH0_SECRET` | for real login | `openssl rand -hex 32` |
+| `APP_BASE_URL` | for real login | `http://localhost:3000` locally; `https://otter-train.vercel.app` on production. Omit on Preview so the SDK uses `https://$VERCEL_URL`. |
 
-Auth0 tenant: **demo-showcase**. Application: **otter-train**. If Universal Login 404s, try `demo-showcase.auth0.com` vs `demo-showcase.us.auth0.com`.
+Auth0 tenant: **demo-showcase**. Application: **otter-train**. OIDC issuer is `https://demo-showcase.us.auth0.com/`.
 
-## Auth (stub now, Auth0 next)
+## Auth (Auth0 wired, stub fallback)
 
-All reads and writes are scoped to `getCurrentUser()` in `lib/auth.ts`. Today that helper returns a single stub user (`auth0|focus` / Focus) when `AUTH_STUB` is not `false`.
+All reads and writes are scoped to `getCurrentUser()` in `lib/auth.ts`. `lib/auth0.ts` uses `@auth0/nextjs-auth0` v4 (`Auth0Client` + `proxy.ts` middleware on `/auth/*`).
 
-To swap in real Auth0 later:
+Real login turns on automatically once `AUTH0_CLIENT_SECRET` is set (or set `AUTH_STUB=false`). The first authenticated Auth0 `sub` gets the weekday plan, habits, and staples seeded on first request.
 
-1. `pnpm add @auth0/nextjs-auth0`
-2. Fill the `AUTH0_*` and `APP_BASE_URL` vars.
-3. Uncomment `Auth0Client` in `lib/auth0.ts` and `auth0.middleware` in `proxy.ts`.
-4. Add Auth0 callback URLs:
-   - Allowed Callback: `{APP_BASE_URL}/auth/callback`
-   - Allowed Logout: `{APP_BASE_URL}`
-5. Set `AUTH_STUB=false`.
-6. Existing rows stay user-scoped by `user_id`. After the first real login, re-seed or update `user_id` from `auth0|focus` to the Auth0 `sub` if you want to keep local data.
+Add these URLs on the **otter-train** Regular Web Application (Auth0 Dashboard → Applications → otter-train → Settings):
+
+- Allowed Callback URLs: `http://localhost:3000/auth/callback,https://otter-train.vercel.app/auth/callback,https://*.vercel.app/auth/callback`
+- Allowed Logout URLs: `http://localhost:3000,https://otter-train.vercel.app,https://*.vercel.app`
+- Allowed Web Origins: `http://localhost:3000,https://otter-train.vercel.app,https://*.vercel.app`
+
+Existing rows stay user-scoped by `user_id`. Local stub data lives under `auth0|focus`; a real Auth0 login is a new user unless you remap those rows.
 
 ## Deploy (Vercel)
 
-1. Create a Vercel project from this repo (team **Focus Otter's projects** is fine).
-2. Attach a Neon database (Vercel Marketplace or an existing Neon project).
-3. Set `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, and `AUTH_STUB=true` on Production / Preview / Development.
-4. After the first deploy, run migrations and seed against that database:
+Vercel project: **otter-train** (`prj_C6iYr3rYBdAQoAh3GDMKpLV1zLsD`) on team **Focus Otter's projects**, linked to `mtliendo/otter-train`. Production domain: `https://otter-train.vercel.app`. Do not promote this PR to production.
+
+1. Attach a permanent Neon database (Vercel Marketplace Neon install `icfg_fHYuFQ1Ncfh5ecIOgWYKH0Ao`, plan `free_v3`, region `iad1`, auth off).
+2. Set `DATABASE_URL` and `DATABASE_URL_UNPOOLED` on Production / Preview / Development.
+3. Auth0 vars already expected on the project: `AUTH0_DOMAIN`, `AUTH0_CLIENT_ID`, `AUTH0_SECRET`. Add `AUTH0_CLIENT_SECRET` when you have it. Set production `APP_BASE_URL=https://otter-train.vercel.app` and development `APP_BASE_URL=http://localhost:3000`. Leave Preview `APP_BASE_URL` unset.
+4. After the database is attached, run migrations (seed happens on first login / first stub request):
 
    ```bash
    pnpm db:migrate
-   pnpm db:seed
    ```
-
-5. When Auth0 is ready, add the Auth0 env vars and set `AUTH_STUB=false`. Add the Vercel URL to Auth0 Allowed Callbacks / Logouts.
 
 No tests are included in this MVP.
 

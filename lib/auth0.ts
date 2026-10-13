@@ -1,37 +1,40 @@
+import { Auth0Client } from "@auth0/nextjs-auth0/server";
 import type { AppUser } from "./auth";
+import { resolveAppBaseUrl } from "./app-url";
 
-/**
- * Auth0 swap point for @auth0/nextjs-auth0.
- *
- * Tenant: demo-showcase
- * App: otter-train
- * Client ID: CBR8NFocoUkfCCtEPVC9oEciT4s8Ez7E
- *
- * 1. pnpm add @auth0/nextjs-auth0
- * 2. Fill AUTH0_* and APP_BASE_URL in .env.local
- * 3. Uncomment Auth0Client below and the middleware call in proxy.ts
- * 4. Set AUTH_STUB=false
- */
+export const AUTH0_TENANT = "demo-showcase";
+export const AUTH0_APP_NAME = "otter-train";
+export const AUTH0_DEFAULT_DOMAIN = "demo-showcase.us.auth0.com";
+export const AUTH0_DEFAULT_CLIENT_ID = "CBR8NFocoUkfCCtEPVC9oEciT4s8Ez7E";
+
+let client: Auth0Client | undefined;
+
+export function getAuth0() {
+  if (!client) {
+    client = new Auth0Client({
+      domain: process.env.AUTH0_DOMAIN ?? AUTH0_DEFAULT_DOMAIN,
+      clientId: process.env.AUTH0_CLIENT_ID ?? AUTH0_DEFAULT_CLIENT_ID,
+      clientSecret: process.env.AUTH0_CLIENT_SECRET,
+      secret: process.env.AUTH0_SECRET,
+      appBaseUrl: resolveAppBaseUrl(),
+    });
+  }
+
+  return client;
+}
+
+export const auth0 = {
+  middleware: (...args: Parameters<Auth0Client["middleware"]>) => getAuth0().middleware(...args),
+  getSession: (...args: Parameters<Auth0Client["getSession"]>) => getAuth0().getSession(...args),
+};
+
 export async function getAuth0User(): Promise<AppUser | null> {
-  // import { Auth0Client } from "@auth0/nextjs-auth0/server";
-  //
-  // export const auth0 = new Auth0Client({
-  //   domain: process.env.AUTH0_DOMAIN!,
-  //   clientId: process.env.AUTH0_CLIENT_ID!,
-  //   clientSecret: process.env.AUTH0_CLIENT_SECRET!,
-  //   secret: process.env.AUTH0_SECRET!,
-  //   appBaseUrl: process.env.APP_BASE_URL!,
-  // });
-  //
-  // const session = await auth0.getSession();
-  // if (!session?.user?.sub) return null;
-  // return {
-  //   id: session.user.sub,
-  //   name: session.user.name ?? "Focus",
-  //   email: session.user.email ?? "",
-  // };
+  const session = await getAuth0().getSession();
+  if (!session?.user?.sub) return null;
 
-  throw new Error(
-    "Auth0 is not wired yet. Keep AUTH_STUB=true or implement getAuth0User() in lib/auth0.ts.",
-  );
+  return {
+    id: session.user.sub,
+    name: session.user.name ?? "Focus",
+    email: session.user.email ?? "",
+  };
 }

@@ -12,6 +12,7 @@
     "db:seed": "tsx db/seed.ts"
   },
   "dependencies": {
+    "@auth0/nextjs-auth0": "^4.32.0",
     "@neondatabase/serverless": "^1.2.0",
     "drizzle-orm": "^0.45.4",
     "next": "16.4.0",

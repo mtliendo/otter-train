@@ -1,5 +1,6 @@
 import { and, desc, eq, gte, lte, sql } from "drizzle-orm";
-import { db } from "@/db";
+import { getDb } from "@/db";
+import { ensureUserSeeded } from "@/db/seed-plan";
 import {
   dailyHabits,
   dayLogs,
@@ -12,6 +13,7 @@ import {
   sleepLogs,
   weekdayPlans,
 } from "@/db/schema";
+import { isAuthStubEnabled } from "./auth";
 import { KNEE_PAIN_JUMP_THRESHOLD, PROTEIN_TARGET_MIN } from "./constants";
 import { endOfWeekSaturday, startOfWeekSunday, weekdayIndex } from "./dates";
 
@@ -23,12 +25,14 @@ function num(value: string | null | undefined): number | null {
 
 export async function getDayResponse(user: { id: string; name: string }, date: string) {
   return {
-    user: { id: user.id, name: user.name },
+    user: { id: user.id, name: user.name, stub: isAuthStubEnabled() },
     ...(await getDayPayload(user.id, date)),
   };
 }
 
 export async function getDayPayload(userId: string, date: string) {
+  const db = getDb();
+  await ensureUserSeeded(db, userId);
   const weekday = weekdayIndex(date);
 
   const [plan] = await db
@@ -253,6 +257,7 @@ export async function getDayPayload(userId: string, date: string) {
 }
 
 export async function ensureDayLog(userId: string, date: string) {
+  const db = getDb();
   const [existing] = await db
     .select()
     .from(dayLogs)
@@ -287,6 +292,7 @@ export async function updateDayLog(
     habits: Record<string, boolean>;
   }>,
 ) {
+  const db = getDb();
   const dayLog = await ensureDayLog(userId, date);
 
   const { habits, ...fields } = patch;
@@ -326,6 +332,7 @@ export async function upsertSet(
     completed?: boolean;
   },
 ) {
+  const db = getDb();
   const dayLog = await ensureDayLog(userId, date);
 
   const [existingExercise] = await db
@@ -380,6 +387,7 @@ export async function addFood(
   date: string,
   input: { name: string; proteinGrams: number; stapleId?: number | null },
 ) {
+  const db = getDb();
   const dayLog = await ensureDayLog(userId, date);
   const [created] = await db
     .insert(foodEntries)
@@ -398,6 +406,7 @@ export async function updateFood(
   id: number,
   patch: { name?: string; proteinGrams?: number },
 ) {
+  const db = getDb();
   const [entry] = await db
     .select({
       id: foodEntries.id,
@@ -422,6 +431,7 @@ export async function updateFood(
 }
 
 export async function deleteFood(userId: string, id: number) {
+  const db = getDb();
   const [entry] = await db
     .select({
       id: foodEntries.id,
@@ -444,6 +454,7 @@ export async function upsertSleep(
   date: string,
   input: { bedtime: string; wakeTime: string; quality: number; kneePain: number },
 ) {
+  const db = getDb();
   const [existing] = await db
     .select()
     .from(sleepLogs)
@@ -466,6 +477,7 @@ export async function upsertSleep(
 }
 
 export async function getCalendarMonth(userId: string, year: number, month: number) {
+  const db = getDb();
   const start = `${year}-${String(month + 1).padStart(2, "0")}-01`;
   const lastDay = new Date(year, month + 1, 0).getDate();
   const end = `${year}-${String(month + 1).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;

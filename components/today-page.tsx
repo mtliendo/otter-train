@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { SignInCard, SignOutLink } from "@/components/auth-session";
 import { CalendarGrid } from "@/components/calendar-grid";
 import { RestTimer, useRestTimer } from "@/components/rest-timer";
 import { readJson } from "@/lib/client";
@@ -90,6 +91,9 @@ export function TodayPage() {
   }, [date]);
 
   if (error) {
+    if (error === "Unauthorized") {
+      return <SignInCard message="Sign in to open today's log." />;
+    }
     return (
       <div className="p-6">
         <p className="rounded-2xl border border-rose-400/30 bg-rose-400/10 p-4 text-sm text-rose-100">
@@ -117,6 +121,7 @@ export function TodayPage() {
           <div>
             <p className="text-[11px] uppercase tracking-[0.2em] text-teal-300">otter-train</p>
             <p className="text-sm text-stone-400">{data.user.name}</p>
+            <SignOutLink stub={data.user.stub} />
           </div>
           <button
             type="button"

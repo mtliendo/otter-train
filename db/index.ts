@@ -14,6 +14,17 @@ function requireDatabaseUrl() {
   return url;
 }
 
-const sql = neon(requireDatabaseUrl());
+export type AppDb = ReturnType<typeof createDb>;
 
-export const db = drizzle(sql, { schema });
+function createDb() {
+  return drizzle(neon(requireDatabaseUrl()), { schema });
+}
+
+let dbInstance: AppDb | undefined;
+
+export function getDb() {
+  if (!dbInstance) {
+    dbInstance = createDb();
+  }
+  return dbInstance;
+}

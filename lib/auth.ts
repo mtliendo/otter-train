@@ -5,8 +5,8 @@ export type AppUser = {
 };
 
 /**
- * Single-user stub for local development. Swap AUTH_STUB=false and implement
- * getAuth0User() once @auth0/nextjs-auth0 is wired (see lib/auth0.ts).
+ * Local / preview fallback while AUTH0_CLIENT_SECRET is missing.
+ * Set AUTH_STUB=false once the otter-train client secret is in env.
  */
 export const STUB_USER: AppUser = {
   id: "auth0|focus",
@@ -22,7 +22,9 @@ export class UnauthorizedError extends Error {
 }
 
 export function isAuthStubEnabled() {
-  return process.env.AUTH_STUB !== "false";
+  if (process.env.AUTH_STUB === "true") return true;
+  if (process.env.AUTH_STUB === "false") return false;
+  return !process.env.AUTH0_CLIENT_SECRET;
 }
 
 export async function getCurrentUser(): Promise<AppUser> {
