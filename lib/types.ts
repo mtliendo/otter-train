@@ -34,6 +34,33 @@ export type LoggedSet = {
   completed: boolean;
 };
 
+export type AmRowIntensity = "hard" | "easy";
+export type AmRowStatus = "done" | "skipped";
+
+export type AmRowPayload = {
+  date: string;
+  sourceUrl: string;
+  title: string;
+  description: string;
+  fallback: boolean;
+  plannedIntensity: AmRowIntensity;
+  intensity: AmRowIntensity;
+  optional: boolean;
+  kneeCaution: boolean;
+  easyGuidance: string;
+  intensityReason: string;
+  log: {
+    status: AmRowStatus | null;
+    duration: string;
+    distance: string;
+    notes: string;
+  };
+  previous: {
+    duration: string | null;
+    distance: string | null;
+  } | null;
+};
+
 export type DayPayload = {
   user: { id: string; name: string; stub: boolean };
   date: string;
@@ -105,6 +132,7 @@ export type DayPayload = {
     quality: number;
     kneePain: number;
   } | null;
+  amRow: AmRowPayload;
 };
 
 export type CalendarDayMarks = {

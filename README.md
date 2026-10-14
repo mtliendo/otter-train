@@ -8,8 +8,9 @@ This is a mobile-first, dark-mode, installable PWA. There is no public MCP endpo
 
 ## What it does
 
-- **Home** — logged-out marketing page: hero, feature sections (Today, warmup/fueling, food, sleep/knees, calendar, travel), closing CTA.
-- **Today** (`/today`) — one scrolling page for a date: warmup, exercises, rest timer, cooldown, fueling, daily extras, food, sleep.
+- **Home** — logged-out marketing page: hero, feature sections (Today, AM Row, warmup/fueling, food, sleep/knees, calendar, travel), closing CTA.
+- **Today** (`/today`) — one scrolling page for a date: AM Row, warmup, afternoon lift, rest timer, cooldown, fueling, daily extras, food, sleep.
+- **AM Row** — daily morning Concept2 RowErg workout of the day (`https://log.concept2.com/wod/YYYY-MM-DD/rowerg`), fetched server-side and cached per date. Monday and Tuesday are HARD; Wednesday (legs), Thursday, Friday, Saturday (protecting volleyball), and Sunday are EASY at a conversational ~20 spm. Sunday is optional. If morning knee pain is ≥ 3, the card warns to skip or keep it very light and HARD is downgraded to EASY/optional. Fetch/parse failure falls back to an easy 20-minute steady row. Log done/skipped, time, distance, and notes; time and distance prefill from the last completed row. Travel days show the same card.
 - **Date picker** — tap the date to open a month calendar; previous/next day arrows; past days stay editable.
 - **Workouts** — weekday templates live in Postgres (home and travel variants). Sets are logged weight × reps and prefilled from the last time that exercise was logged. Tap ⏱ to start a 90s rest timer.
 - **Travel mode** — a start/end date range, not a global switch. Days inside the range use hotel-gym / bodyweight weekday templates with the same training intent. It turns off after the end date. Calendar events do not auto-toggle travel (future).

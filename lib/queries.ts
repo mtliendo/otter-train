@@ -2,6 +2,8 @@ import { and, desc, eq, gte, lte, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { ensureUserSeeded } from "@/db/seed-plan";
 import {
+  amRowLogs,
+  concept2Wods,
   dailyHabits,
   dayLogs,
   foodEntries,
@@ -14,11 +16,12 @@ import {
   travelRanges,
   weekdayPlans,
 } from "@/db/schema";
+import { concept2WodUrl, fetchConcept2Wod, resolveAmRowIntensity } from "./am-row";
 import { isAuthStubEnabled } from "./auth";
-import { KNEE_PAIN_JUMP_THRESHOLD, PROTEIN_TARGET_MIN } from "./constants";
+import { FALLBACK_AM_ROW, KNEE_PAIN_JUMP_THRESHOLD, PROTEIN_TARGET_MIN } from "./constants";
 import { addDays, eachDateInRange, endOfWeekSaturday, isDateInRange, startOfWeekSunday, weekdayIndex } from "./dates";
 import { travelKneeGuardrails } from "./knee-guardrails";
-import type { FoodStapleSet, TravelRange } from "./types";
+import type { AmRowPayload, AmRowStatus, FoodStapleSet, TravelRange } from "./types";
 
 function num(value: string | null | undefined): number | null {
   if (value == null || value === "") return null;
@@ -325,7 +328,158 @@ export async function getDayPayload(userId: string, date: string) {
           kneePain: sleep.kneePain,
         }
       : null,
+    amRow: await getAmRowPayload(userId, date, sleep?.kneePain ?? null),
   };
+}
+
+function parseAmRowStatus(value: string | null | undefined): AmRowStatus | null {
+  return value === "done" || value === "skipped" ? value : null;
+}
+
+async function getOrFetchConcept2Wod(date: string) {
+  const db = getDb();
+  const [cached] = await db
+    .select()
+    .from(concept2Wods)
+    .where(eq(concept2Wods.date, date))
+    .limit(1);
+
+  if (cached && !cached.fallback) {
+    return {
+      title: cached.title,
+      description: cached.description,
+      sourceUrl: cached.sourceUrl,
+      fallback: false,
+    };
+  }
+
+  const fetched = await fetchConcept2Wod(date);
+  if (fetched) {
+    await db
+      .insert(concept2Wods)
+      .values({
+        date,
+        title: fetched.title,
+        description: fetched.description,
+        sourceUrl: fetched.sourceUrl,
+        fallback: false,
+        fetchedAt: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: concept2Wods.date,
+        set: {
+          title: fetched.title,
+          description: fetched.description,
+          sourceUrl: fetched.sourceUrl,
+          fallback: false,
+          fetchedAt: new Date(),
+        },
+      });
+
+    return {
+      title: fetched.title,
+      description: fetched.description,
+      sourceUrl: fetched.sourceUrl,
+      fallback: false,
+    };
+  }
+
+  return {
+    title: FALLBACK_AM_ROW.title,
+    description: FALLBACK_AM_ROW.description,
+    sourceUrl: concept2WodUrl(date),
+    fallback: true,
+  };
+}
+
+async function getAmRowPayload(
+  userId: string,
+  date: string,
+  kneePain: number | null,
+): Promise<AmRowPayload> {
+  const db = getDb();
+  const wod = await getOrFetchConcept2Wod(date);
+  const intensity = resolveAmRowIntensity(date, kneePain);
+
+  const [rowLog] = await db
+    .select()
+    .from(amRowLogs)
+    .where(and(eq(amRowLogs.userId, userId), eq(amRowLogs.date, date)))
+    .limit(1);
+
+  const [previous] = await db
+    .select({
+      duration: amRowLogs.duration,
+      distance: amRowLogs.distance,
+    })
+    .from(amRowLogs)
+    .where(
+      and(
+        eq(amRowLogs.userId, userId),
+        eq(amRowLogs.status, "done"),
+        sql`${amRowLogs.date} < ${date}`,
+      ),
+    )
+    .orderBy(desc(amRowLogs.date))
+    .limit(1);
+
+  return {
+    date,
+    sourceUrl: wod.sourceUrl,
+    title: wod.title,
+    description: wod.description,
+    fallback: wod.fallback,
+    ...intensity,
+    log: {
+      status: parseAmRowStatus(rowLog?.status),
+      duration: rowLog?.duration ?? "",
+      distance: rowLog?.distance ?? "",
+      notes: rowLog?.notes ?? "",
+    },
+    previous: previous
+      ? {
+          duration: previous.duration,
+          distance: previous.distance,
+        }
+      : null,
+  };
+}
+
+export async function upsertAmRow(
+  userId: string,
+  date: string,
+  input: {
+    status?: AmRowStatus | null;
+    duration?: string | null;
+    distance?: string | null;
+    notes?: string | null;
+  },
+) {
+  const db = getDb();
+  const [existing] = await db
+    .select()
+    .from(amRowLogs)
+    .where(and(eq(amRowLogs.userId, userId), eq(amRowLogs.date, date)))
+    .limit(1);
+
+  const values = {
+    status: input.status === undefined ? (existing?.status ?? null) : input.status,
+    duration: input.duration === undefined ? (existing?.duration ?? null) : input.duration,
+    distance: input.distance === undefined ? (existing?.distance ?? null) : input.distance,
+    notes: input.notes === undefined ? (existing?.notes ?? null) : input.notes,
+    updatedAt: new Date(),
+  };
+
+  if (existing) {
+    await db.update(amRowLogs).set(values).where(eq(amRowLogs.id, existing.id));
+    return;
+  }
+
+  await db.insert(amRowLogs).values({
+    userId,
+    date,
+    ...values,
+  });
 }
 
 export async function ensureDayLog(userId: string, date: string) {
