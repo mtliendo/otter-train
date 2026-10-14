@@ -59,3 +59,52 @@ export const FOOD_STAPLES = [
   { name: "Peanut butter", proteinGrams: 8, sortOrder: 8 },
   { name: "Leftover chicken", proteinGrams: 30, sortOrder: 9 },
 ] as const;
+
+export const ROAD_STAPLES = [
+  { name: "Eggs", proteinGrams: 12, sortOrder: 100 },
+  { name: "Greek yogurt", proteinGrams: 17, sortOrder: 101 },
+  { name: "Protein bar", proteinGrams: 20, sortOrder: 102 },
+  { name: "Jerky", proteinGrams: 12, sortOrder: 103 },
+  { name: "Nuts", proteinGrams: 6, sortOrder: 104 },
+  { name: "Conference chicken", proteinGrams: 30, sortOrder: 105 },
+] as const;
+
+export const TRAVEL_WARMUP = [
+  "Easy walk, bike, or march in place 2 min",
+  "Lateral band walks",
+  "Clamshells",
+  "Spanish squat hold 2×30 s",
+  "Leg swings",
+  "World's greatest stretch",
+];
+
+export const TRAVEL_COOLDOWN = [
+  "Easy walk",
+  "Couch stretch",
+  "Hamstring stretch",
+  "Calf stretch",
+  "Breathing",
+];
+
+export const DEFAULT_TRAVEL_RANGE = {
+  startDate: "2026-10-18",
+  endDate: "2026-10-24",
+  label: "Raleigh / San Jose",
+} as const;
+
+export const TRAVEL_DAY_NOTES: Record<string, string> = {
+  "2026-10-18":
+    "Fly to Raleigh. After the flight: 20–30 min walk, hips and calves mobility, Spanish squat holds.",
+  "2026-10-19":
+    "Raleigh. Speaker dinner in the evening. Hotel-gym upper body in the morning (about 40 min). Protein main at dinner, 1–2 drinks max, water with each drink.",
+  "2026-10-20":
+    "Talk at 11 AM CT (12 PM ET). Morning: 15 min easy mobility and a walk only — nothing hard before the talk. Volleyball option: Taylor YMCA advanced pickup, 6:30 PM ET, after confirming guest access. Play about an hour and stop by 8. If no guest access, 20 min easy cardio intervals.",
+  "2026-10-21":
+    "Fly RDU → SJC. Walk the airport, do the daily knee work at the hotel, and sleep.",
+  "2026-10-22":
+    "San Jose. Hotel-gym legs, no jumping. Keep the weight moderate — Friday is volleyball.",
+  "2026-10-23":
+    "IVL open gym, 8–10:30 PM at Wilcox HS (Santa Clara). $14; register in the Reclub app. Replaces Beyond the Baseline this week. Morning easy: walk and band work. Cap play at about 90 minutes, sitting out every few games.",
+  "2026-10-24":
+    "Fly home. Spanish squat holds and a walk. Next-morning knee check: if it's 3 or higher on the stairs, keep next week's jumping to Friday only.",
+};

@@ -81,6 +81,9 @@ export function CalendarPage() {
         <li className="flex items-center gap-2">
           <span className="h-2 w-2 rounded-full bg-violet-400" /> Sleep logged
         </li>
+        <li className="flex items-center gap-2">
+          <span className="h-2 w-2 rounded-full border border-teal-300 bg-teal-400/20" /> Travel dates
+        </li>
       </ul>
     </div>
   );

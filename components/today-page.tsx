@@ -150,7 +150,11 @@ export function TodayPage() {
             className="flex-1 rounded-xl bg-ink-800 px-3 py-2 text-left"
           >
             <p className="text-base font-semibold text-stone-50">{formatLongDate(date)}</p>
-            <p className="text-xs text-stone-400">Tap to open calendar</p>
+            <p className="text-xs text-stone-400">
+              {data.travel.active
+                ? `Travel${data.travel.range ? ` · ${data.travel.range.startDate}–${data.travel.range.endDate}` : ""}`
+                : "Tap to open calendar"}
+            </p>
           </button>
           <button
             type="button"
@@ -173,9 +177,34 @@ export function TodayPage() {
         </div>
       ) : null}
 
+      {data.kneeGuardrails.map((warning) => (
+        <div
+          key={warning.kind}
+          className="mx-4 mt-4 rounded-2xl border border-amber-300/40 bg-amber-300/10 px-4 py-3"
+        >
+          <p className="text-sm font-semibold text-amber-100">
+            {warning.kind === "jumping-days"
+              ? "Too many jumping days"
+              : "Heavy legs next to volleyball"}
+          </p>
+          <p className="mt-1 text-xs text-amber-100/80">{warning.message}</p>
+        </div>
+      ))}
+
+      <TravelCard
+        key={`${date}-${data.travel.range?.id ?? "none"}-${data.travel.range?.startDate ?? ""}-${data.travel.range?.endDate ?? ""}`}
+        date={date}
+        data={data}
+        onSaved={setData}
+      />
+      <DayNoteCard key={`${date}-note`} date={date} notes={data.log?.notes ?? ""} onSaved={setData} />
+
       {data.plan ? (
         <section className="px-4 pt-5">
-          <p className="text-xs uppercase tracking-wide text-teal-300">{data.plan.kind}</p>
+          <p className="text-xs uppercase tracking-wide text-teal-300">
+            {data.travel.active ? "travel · " : ""}
+            {data.plan.kind}
+          </p>
           <h1 className="text-2xl font-semibold text-stone-50">{data.plan.title}</h1>
           {data.plan.subtitle ? (
             <p className="text-sm text-stone-400">{data.plan.subtitle}</p>
@@ -317,6 +346,185 @@ export function TodayPage() {
         </div>
       ) : null}
     </div>
+  );
+}
+
+function StapleGroup({
+  title,
+  staples,
+  onAdd,
+}: {
+  title: string;
+  staples: DayPayload["food"]["staples"];
+  onAdd: (staple: DayPayload["food"]["staples"][number]) => void;
+}) {
+  if (staples.length === 0) return null;
+  return (
+    <>
+      <p className="mb-2 mt-3 text-xs uppercase tracking-wide text-stone-500">{title}</p>
+      <div className="flex flex-wrap gap-2">
+        {staples.map((staple) => (
+          <button
+            key={staple.id}
+            type="button"
+            onClick={() => onAdd(staple)}
+            className="rounded-full border border-ink-600 bg-ink-800 px-3 py-1.5 text-xs text-stone-100"
+          >
+            {staple.name} · {staple.proteinGrams}g
+          </button>
+        ))}
+      </div>
+    </>
+  );
+}
+
+function TravelCard({
+  date,
+  data,
+  onSaved,
+}: {
+  date: string;
+  data: DayPayload;
+  onSaved: (payload: DayPayload) => void;
+}) {
+  const [startDate, setStartDate] = useState(data.travel.range?.startDate ?? date);
+  const [endDate, setEndDate] = useState(data.travel.range?.endDate ?? date);
+  const [saving, setSaving] = useState(false);
+
+  async function save() {
+    setSaving(true);
+    try {
+      const response = await fetch("/api/travel", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          date,
+          id: data.travel.range?.id,
+          startDate,
+          endDate,
+        }),
+      });
+      onSaved(await readJson<DayPayload>(response));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function clearRange() {
+    if (!data.travel.range) return;
+    setSaving(true);
+    try {
+      const response = await fetch(`/api/travel?date=${date}&id=${data.travel.range.id}`, {
+        method: "DELETE",
+      });
+      onSaved(await readJson<DayPayload>(response));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <section className="px-4 pt-5">
+      <div className="rounded-2xl border border-ink-700 bg-ink-900 p-3">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs uppercase tracking-wide text-stone-500">Travel mode</p>
+            <p className="text-sm font-semibold text-stone-50">
+              {data.travel.active ? "On for this day" : "Off — home plan"}
+            </p>
+            <p className="mt-1 text-xs text-stone-400">
+              Date range only. Days inside use hotel/bodyweight templates; it turns off after the
+              end date. Calendar events do not toggle this.
+            </p>
+          </div>
+          <span
+            className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+              data.travel.active ? "bg-teal-400 text-ink-950" : "bg-ink-700 text-stone-300"
+            }`}
+          >
+            {data.travel.active ? "Travel" : "Home"}
+          </span>
+        </div>
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <label className="text-xs text-stone-400">
+            Start
+            <input
+              type="date"
+              value={startDate}
+              onChange={(event) => setStartDate(event.target.value)}
+              className="mt-1 w-full rounded-lg border border-ink-600 bg-ink-950 px-3 py-2 text-sm text-stone-100"
+            />
+          </label>
+          <label className="text-xs text-stone-400">
+            End
+            <input
+              type="date"
+              value={endDate}
+              onChange={(event) => setEndDate(event.target.value)}
+              className="mt-1 w-full rounded-lg border border-ink-600 bg-ink-950 px-3 py-2 text-sm text-stone-100"
+            />
+          </label>
+        </div>
+        <div className="mt-3 flex gap-2">
+          <button
+            type="button"
+            onClick={() => void save()}
+            disabled={saving}
+            className="rounded-lg bg-teal-400 px-3 py-2 text-sm font-semibold text-ink-950 disabled:opacity-60"
+          >
+            {data.travel.range ? "Update dates" : "Set travel dates"}
+          </button>
+          {data.travel.range ? (
+            <button
+              type="button"
+              onClick={() => void clearRange()}
+              disabled={saving}
+              className="rounded-lg bg-ink-700 px-3 py-2 text-sm text-stone-200 disabled:opacity-60"
+            >
+              Clear this trip
+            </button>
+          ) : null}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function DayNoteCard({
+  date,
+  notes,
+  onSaved,
+}: {
+  date: string;
+  notes: string;
+  onSaved: (payload: DayPayload) => void;
+}) {
+  const [value, setValue] = useState(notes);
+
+  async function save() {
+    if (value === notes) return;
+    const response = await fetch("/api/day", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ date, notes: value === "" ? null : value }),
+    });
+    onSaved(await readJson<DayPayload>(response));
+  }
+
+  return (
+    <section className="px-4 pt-5">
+      <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-stone-400">
+        Day note
+      </h2>
+      <textarea
+        value={value}
+        onChange={(event) => setValue(event.target.value)}
+        onBlur={() => void save()}
+        rows={4}
+        placeholder="Trip details — talk time, gym pickup, open gym, flights…"
+        className="w-full rounded-2xl border border-ink-700 bg-ink-900 px-3 py-2 text-sm text-stone-100"
+      />
+    </section>
   );
 }
 
@@ -613,19 +821,19 @@ function FoodSection({
           onToggle={() => onPatchDay({ creatineTaken: !data.log?.creatineTaken })}
         />
 
-        <p className="mb-2 mt-3 text-xs uppercase tracking-wide text-stone-500">House staples</p>
-        <div className="flex flex-wrap gap-2">
-          {data.food.staples.map((staple) => (
-            <button
-              key={staple.id}
-              type="button"
-              onClick={() => void add(staple.name, staple.proteinGrams, staple.id)}
-              className="rounded-full border border-ink-600 bg-ink-800 px-3 py-1.5 text-xs text-stone-100"
-            >
-              {staple.name} · {staple.proteinGrams}g
-            </button>
-          ))}
-        </div>
+        <StapleGroup
+          title="House staples"
+          staples={data.food.staples.filter((staple) => staple.stapleSet !== "road")}
+          onAdd={(staple) => void add(staple.name, staple.proteinGrams, staple.id)}
+        />
+
+        {data.travel.active ? (
+          <StapleGroup
+            title="On the road"
+            staples={data.food.staples.filter((staple) => staple.stapleSet === "road")}
+            onAdd={(staple) => void add(staple.name, staple.proteinGrams, staple.id)}
+          />
+        ) : null}
 
         <div className="mt-3 flex gap-2">
           <input

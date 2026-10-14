@@ -2,6 +2,20 @@ export type KneeWarning =
   | { active: false }
   | { active: true; sourceDate: string; kneePain: number };
 
+export type KneeGuardrail = {
+  kind: "jumping-days" | "heavy-legs-volleyball";
+  message: string;
+};
+
+export type TravelRange = {
+  id: number;
+  startDate: string;
+  endDate: string;
+  label: string | null;
+};
+
+export type FoodStapleSet = "home" | "road";
+
 export type PlanExercise = {
   id: number;
   name: string;
@@ -25,11 +39,20 @@ export type DayPayload = {
   date: string;
   weekday: number;
   kneeWarning: KneeWarning;
+  kneeGuardrails: KneeGuardrail[];
+  travel: {
+    active: boolean;
+    range: TravelRange | null;
+    ranges: TravelRange[];
+  };
   plan: {
     id: number;
     title: string;
     subtitle: string | null;
     kind: string;
+    variant: "home" | "travel";
+    isJumping: boolean;
+    isHeavyLegs: boolean;
     location: string | null;
     timeWindow: string | null;
     notes: string | null;
@@ -74,7 +97,7 @@ export type DayPayload = {
   >;
   food: {
     totalProtein: number;
-    staples: { id: number; name: string; proteinGrams: number }[];
+    staples: { id: number; name: string; proteinGrams: number; stapleSet: FoodStapleSet }[];
   };
   sleep: {
     bedtime: string;
@@ -88,6 +111,7 @@ export type CalendarDayMarks = {
   workout: boolean;
   protein: boolean;
   sleep: boolean;
+  travel: boolean;
 };
 
 export type CalendarPayload = {

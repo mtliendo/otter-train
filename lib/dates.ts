@@ -70,3 +70,17 @@ export function assertISODate(value: string | null | undefined): string {
   }
   return value;
 }
+
+export function isDateInRange(date: string, start: string, end: string): boolean {
+  return date >= start && date <= end;
+}
+
+export function eachDateInRange(start: string, end: string): string[] {
+  const dates: string[] = [];
+  let current = start;
+  while (current <= end) {
+    dates.push(current);
+    current = addDays(current, 1);
+  }
+  return dates;
+}

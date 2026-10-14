@@ -17,7 +17,9 @@ async function seed() {
     return;
   }
 
-  console.log(`Seeded weekday plan, daily habits, and food staples for ${STUB_USER.name}.`);
+  console.log(
+    `Seeded home and travel weekday plans, habits, house + road staples, and Oct 18–24 travel notes for ${STUB_USER.name}.`,
+  );
 }
 
 seed().catch((error) => {

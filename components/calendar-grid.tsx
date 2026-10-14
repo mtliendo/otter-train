@@ -54,7 +54,9 @@ export function CalendarGrid({
                   ? "border-amber-300 bg-amber-300/15 text-amber-100"
                   : isToday
                     ? "border-teal-400/50 bg-teal-400/10 text-stone-100"
-                    : "border-transparent text-stone-200 hover:bg-ink-700"
+                    : dayMarks?.travel
+                      ? "border-teal-400/25 bg-teal-400/5 text-stone-100 hover:bg-ink-700"
+                      : "border-transparent text-stone-200 hover:bg-ink-700"
               }`}
             >
               <span className="font-medium">{day}</span>

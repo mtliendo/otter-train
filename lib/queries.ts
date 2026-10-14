@@ -11,11 +11,14 @@ import {
   loggedSets,
   planExercises,
   sleepLogs,
+  travelRanges,
   weekdayPlans,
 } from "@/db/schema";
 import { isAuthStubEnabled } from "./auth";
 import { KNEE_PAIN_JUMP_THRESHOLD, PROTEIN_TARGET_MIN } from "./constants";
-import { endOfWeekSaturday, startOfWeekSunday, weekdayIndex } from "./dates";
+import { addDays, eachDateInRange, endOfWeekSaturday, isDateInRange, startOfWeekSunday, weekdayIndex } from "./dates";
+import { travelKneeGuardrails } from "./knee-guardrails";
+import type { FoodStapleSet, TravelRange } from "./types";
 
 function num(value: string | null | undefined): number | null {
   if (value == null || value === "") return null;
@@ -30,16 +33,46 @@ export async function getDayResponse(user: { id: string; name: string }, date: s
   };
 }
 
+function toTravelRange(row: typeof travelRanges.$inferSelect): TravelRange {
+  return {
+    id: row.id,
+    startDate: row.startDate,
+    endDate: row.endDate,
+    label: row.label,
+  };
+}
+
+function activeTravelRange(
+  ranges: TravelRange[],
+  date: string,
+): TravelRange | null {
+  return ranges.find((range) => isDateInRange(date, range.startDate, range.endDate)) ?? null;
+}
+
 export async function getDayPayload(userId: string, date: string) {
   const db = getDb();
   await ensureUserSeeded(db, userId);
   const weekday = weekdayIndex(date);
 
-  const [plan] = await db
+  const userPlans = await db
     .select()
     .from(weekdayPlans)
-    .where(and(eq(weekdayPlans.userId, userId), eq(weekdayPlans.weekday, weekday)))
-    .limit(1);
+    .where(eq(weekdayPlans.userId, userId));
+
+  const rangeRows = await db
+    .select()
+    .from(travelRanges)
+    .where(eq(travelRanges.userId, userId))
+    .orderBy(travelRanges.startDate);
+
+  const ranges = rangeRows.map(toTravelRange);
+  const travelRange = activeTravelRange(ranges, date);
+  const travelActive = Boolean(travelRange);
+  const variant = travelActive ? "travel" : "home";
+
+  const plan =
+    userPlans.find((row) => row.weekday === weekday && row.variant === variant) ??
+    userPlans.find((row) => row.weekday === weekday && row.variant === "home");
 
   const exercises = plan
     ? await db
@@ -193,6 +226,32 @@ export async function getDayPayload(userId: string, date: string) {
   const foodEntriesForTotal = log?.food ?? [];
   const totalProtein = foodEntriesForTotal.reduce((sum, entry) => sum + entry.proteinGrams, 0);
 
+  const visibleStaples = staples.filter(
+    (staple) => staple.stapleSet === "home" || (travelActive && staple.stapleSet === "road"),
+  );
+
+  const weekDates = eachDateInRange(weekStart, weekEnd);
+  const lookupDates = [addDays(weekStart, -1), ...weekDates, addDays(weekEnd, 1)];
+
+  const planForDate = (isoDate: string) => {
+    const dateVariant = activeTravelRange(ranges, isoDate) ? "travel" : "home";
+    const dateWeekday = weekdayIndex(isoDate);
+    const matched =
+      userPlans.find((row) => row.weekday === dateWeekday && row.variant === dateVariant) ??
+      userPlans.find((row) => row.weekday === dateWeekday && row.variant === "home");
+    if (!matched) return undefined;
+    return {
+      date: isoDate,
+      kind: matched.kind,
+      isJumping: matched.isJumping,
+      isHeavyLegs: matched.isHeavyLegs,
+    };
+  };
+
+  const lookupMap = new Map(
+    lookupDates.map((isoDate) => [isoDate, planForDate(isoDate)] as const),
+  );
+
   return {
     date,
     weekday,
@@ -203,12 +262,24 @@ export async function getDayPayload(userId: string, date: string) {
           kneePain: weekKnee[0].kneePain,
         }
       : { active: false as const },
+    kneeGuardrails: travelKneeGuardrails(
+      weekDates.map((isoDate) => lookupMap.get(isoDate)).filter((day): day is NonNullable<typeof day> => Boolean(day)),
+      (isoDate) => lookupMap.get(isoDate),
+    ),
+    travel: {
+      active: travelActive,
+      range: travelRange,
+      ranges,
+    },
     plan: plan
       ? {
           id: plan.id,
           title: plan.title,
           subtitle: plan.subtitle,
           kind: plan.kind,
+          variant: (plan.variant === "travel" ? "travel" : "home") as "home" | "travel",
+          isJumping: plan.isJumping,
+          isHeavyLegs: plan.isHeavyLegs,
           location: plan.location,
           timeWindow: plan.timeWindow,
           notes: plan.notes,
@@ -239,10 +310,11 @@ export async function getDayPayload(userId: string, date: string) {
     previousByExercise,
     food: {
       totalProtein,
-      staples: staples.map((staple) => ({
+      staples: visibleStaples.map((staple) => ({
         id: staple.id,
         name: staple.name,
         proteinGrams: num(staple.proteinGrams) ?? 0,
+        stapleSet: (staple.stapleSet === "road" ? "road" : "home") as FoodStapleSet,
       })),
     },
     sleep: sleep
@@ -476,8 +548,13 @@ export async function upsertSleep(
   }
 }
 
+function emptyCalendarMarks() {
+  return { workout: false, protein: false, sleep: false, travel: false };
+}
+
 export async function getCalendarMonth(userId: string, year: number, month: number) {
   const db = getDb();
+  await ensureUserSeeded(db, userId);
   const start = `${year}-${String(month + 1).padStart(2, "0")}-01`;
   const lastDay = new Date(year, month + 1, 0).getDate();
   const end = `${year}-${String(month + 1).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
@@ -505,27 +582,96 @@ export async function getCalendarMonth(userId: string, year: number, month: numb
     .where(and(eq(dayLogs.userId, userId), gte(dayLogs.date, start), lte(dayLogs.date, end)))
     .groupBy(dayLogs.date);
 
-  const days: Record<string, { workout: boolean; protein: boolean; sleep: boolean }> = {};
+  const rangeRows = await db
+    .select()
+    .from(travelRanges)
+    .where(eq(travelRanges.userId, userId));
+
+  const days: Record<string, { workout: boolean; protein: boolean; sleep: boolean; travel: boolean }> = {};
 
   for (const log of logs) {
     days[log.date] = {
+      ...emptyCalendarMarks(),
       workout: log.workoutCompleted,
-      protein: false,
-      sleep: false,
     };
   }
 
   for (const row of proteinRows) {
-    const current = days[row.date] ?? { workout: false, protein: false, sleep: false };
+    const current = days[row.date] ?? emptyCalendarMarks();
     current.protein = Number(row.total) >= PROTEIN_TARGET_MIN;
     days[row.date] = current;
   }
 
   for (const row of sleep) {
-    const current = days[row.date] ?? { workout: false, protein: false, sleep: false };
+    const current = days[row.date] ?? emptyCalendarMarks();
     current.sleep = true;
     days[row.date] = current;
   }
 
+  for (const isoDate of eachDateInRange(start, end)) {
+    if (!rangeRows.some((range) => isDateInRange(isoDate, range.startDate, range.endDate))) {
+      continue;
+    }
+    const current = days[isoDate] ?? emptyCalendarMarks();
+    current.travel = true;
+    days[isoDate] = current;
+  }
+
   return { year, month: month + 1, days };
+}
+
+export async function upsertTravelRange(
+  userId: string,
+  input: { id?: number; startDate: string; endDate: string; label?: string | null },
+) {
+  const db = getDb();
+  await ensureUserSeeded(db, userId);
+
+  if (input.startDate > input.endDate) {
+    throw new Error("travel start date must be on or before end date");
+  }
+
+  if (input.id != null) {
+    const [existing] = await db
+      .select()
+      .from(travelRanges)
+      .where(and(eq(travelRanges.id, input.id), eq(travelRanges.userId, userId)))
+      .limit(1);
+
+    if (!existing) {
+      throw new Error("travel range not found");
+    }
+
+    await db
+      .update(travelRanges)
+      .set({
+        startDate: input.startDate,
+        endDate: input.endDate,
+        label: input.label ?? existing.label,
+      })
+      .where(eq(travelRanges.id, existing.id));
+    return;
+  }
+
+  await db.insert(travelRanges).values({
+    userId,
+    startDate: input.startDate,
+    endDate: input.endDate,
+    label: input.label ?? null,
+  });
+}
+
+export async function deleteTravelRange(userId: string, id: number) {
+  const db = getDb();
+  const [existing] = await db
+    .select()
+    .from(travelRanges)
+    .where(and(eq(travelRanges.id, id), eq(travelRanges.userId, userId)))
+    .limit(1);
+
+  if (!existing) {
+    throw new Error("travel range not found");
+  }
+
+  await db.delete(travelRanges).where(eq(travelRanges.id, existing.id));
 }

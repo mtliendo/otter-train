@@ -28,8 +28,17 @@ export const weekdayPlans = pgTable(
     fuelingPre: text("fueling_pre"),
     fuelingPost: text("fueling_post"),
     fuelingEvening: text("fueling_evening"),
+    variant: text("variant").notNull().default("home"),
+    isJumping: boolean("is_jumping").notNull().default(false),
+    isHeavyLegs: boolean("is_heavy_legs").notNull().default(false),
   },
-  (table) => [uniqueIndex("weekday_plans_user_weekday").on(table.userId, table.weekday)],
+  (table) => [
+    uniqueIndex("weekday_plans_user_weekday_variant").on(
+      table.userId,
+      table.weekday,
+      table.variant,
+    ),
+  ],
 );
 
 export const planExercises = pgTable("plan_exercises", {
@@ -60,6 +69,16 @@ export const foodStaples = pgTable("food_staples", {
   name: text("name").notNull(),
   proteinGrams: numeric("protein_grams", { precision: 6, scale: 1 }).notNull(),
   sortOrder: integer("sort_order").notNull().default(0),
+  stapleSet: text("staple_set").notNull().default("home"),
+});
+
+export const travelRanges = pgTable("travel_ranges", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  startDate: date("start_date").notNull(),
+  endDate: date("end_date").notNull(),
+  label: text("label"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const dayLogs = pgTable(

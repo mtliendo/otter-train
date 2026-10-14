@@ -8,11 +8,13 @@ This is a mobile-first, dark-mode, installable PWA. There is no public MCP endpo
 
 - **Today** — one scrolling page for a date: warmup, exercises, rest timer, cooldown, fueling, daily extras, food, sleep.
 - **Date picker** — tap the date to open a month calendar; previous/next day arrows; past days stay editable.
-- **Workouts** — weekday templates live in Postgres. Sets are logged weight × reps and prefilled from the last time that exercise was logged. Tap ⏱ to start a 90s rest timer.
-- **Food** — house staples with preset protein grams plus free-text entries. Daily protein total vs a 160–200 g target. Creatine 5 g checkbox.
+- **Workouts** — weekday templates live in Postgres (home and travel variants). Sets are logged weight × reps and prefilled from the last time that exercise was logged. Tap ⏱ to start a 90s rest timer.
+- **Travel mode** — a start/end date range, not a global switch. Days inside the range use hotel-gym / bodyweight weekday templates with the same training intent. It turns off after the end date. Calendar events do not auto-toggle travel (future).
+- **Day note** — per-day trip details (talk time, Taylor YMCA pickup, IVL at Wilcox HS, flights). Oct 18–24 2026 is pre-filled from the travel-week plan.
+- **Food** — house staples with preset protein grams plus free-text entries. On travel days, a road set is added: eggs, Greek yogurt, protein bar, jerky, nuts, conference chicken. Daily protein total vs a 160–200 g target. Creatine 5 g checkbox.
 - **Sleep** — morning entry: bedtime, wake time, quality 1–5, next-morning knee pain 0–10.
-- **Knee rule** — if knee pain is ≥ 3, a **Cut jumping this week** banner shows for the rest of that Sunday–Saturday week. Warning only; the plan never auto-changes.
-- **Calendar** — month grid with dots for workout done, protein target hit (160 g+), and sleep logged.
+- **Knee rule** — if knee pain is ≥ 3, a **Cut jumping this week** banner shows for the rest of that Sunday–Saturday week. Extra warning-only banners if a week has more than 2 jumping days, or heavy legs sit the day before/after volleyball. The plan never auto-changes.
+- **Calendar** — month grid with dots for workout done, protein target hit (160 g+), and sleep logged. Travel dates get a teal tint.
 
 ## Stack
 
@@ -42,11 +44,11 @@ Read `DATABASE_URL` from the environment. Prefer Neon's **pooled** URL for the a
 ```bash
 pnpm db:generate   # after schema changes
 pnpm db:migrate    # apply drizzle/ SQL migrations
-pnpm db:seed       # weekday plan, daily habits, house staples
-pnpm db:seed -- --force   # replace templates (does not wipe logs)
+pnpm db:seed       # weekday plans (home + travel), habits, house + road staples, default travel week
+pnpm db:seed -- --force   # replace templates (does not wipe set/food/sleep logs)
 ```
 
-Seeded plan (weekday templates):
+Seeded home plan (weekday templates):
 
 | Day | Session |
 | --- | --- |
@@ -60,7 +62,23 @@ Seeded plan (weekday templates):
 
 Every training day also includes the shared warmup/cooldown/fueling lists, plus daily extras: Spanish squat holds 3×30–45 s, clamshells or lateral walks, slant board 3–4 days/week, midday walk.
 
+Travel weekday templates (used when the date is inside a travel range):
+
+| Day | Session |
+| --- | --- |
+| Sun | Travel / rest: 20–30 min walk, hips and calves mobility, Spanish squat holds |
+| Mon | Hotel upper body (~40 min): DB bench 4×10, DB rows 4×10, push-ups 3 near failure, curls 3×12, skull crushers 3×12, plank / side plank ×3, 10 min easy rower or bike |
+| Tue | Easy pre-volleyball: 15 min morning mobility + walk; optional Taylor YMCA pickup or 20 min easy intervals (jumping day) |
+| Wed | Travel day: airport walk, Spanish squat holds, clamshells |
+| Thu | Hotel legs, no jumping: tempo goblet/DB squats 4×8, split squats 3×10/side, DB RDLs 4×10, single-leg hip thrusts 3×12, calf raises 4×15, Spanish squat holds (heavy-legs day) |
+| Fri | IVL open gym at Wilcox HS 8:00–10:30 PM; morning walk + band work (jumping day) |
+| Sat | Travel home: Spanish squat holds and a walk |
+
+Default travel range: **2026-10-18 through 2026-10-24** (Raleigh / San Jose). Day notes for that week are pre-filled.
+
 House staples (protein defaults, editable on each log row): bananas 1.3 g, milk 8 g, raisin bran 5 g, granola 4 g, protein powder 25 g, oranges 1.2 g, cottage cheese 25 g, bread 4 g, peanut butter 8 g, leftover chicken 30 g.
+
+Road staples (added on travel days): eggs 12 g, Greek yogurt 17 g, protein bar 20 g, jerky 12 g, nuts 6 g, conference chicken 30 g.
 
 ## Environment variables
 
@@ -115,4 +133,4 @@ No tests are included in this MVP.
 | `pnpm lint` | ESLint |
 | `pnpm db:generate` | Generate a new Drizzle migration from `db/schema.ts` |
 | `pnpm db:migrate` | Apply migrations |
-| `pnpm db:seed` | Seed Focus's plan, habits, and staples |
+| `pnpm db:seed` | Seed Focus's home + travel plans, habits, staples, and Oct 18–24 notes |
