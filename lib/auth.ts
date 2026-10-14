@@ -27,13 +27,17 @@ export function isAuthStubEnabled() {
   return !process.env.AUTH0_CLIENT_SECRET;
 }
 
-export async function getCurrentUser(): Promise<AppUser> {
+export async function getOptionalUser(): Promise<AppUser | null> {
   if (isAuthStubEnabled()) {
     return STUB_USER;
   }
 
   const { getAuth0User } = await import("./auth0");
-  const user = await getAuth0User();
+  return getAuth0User();
+}
+
+export async function getCurrentUser(): Promise<AppUser> {
+  const user = await getOptionalUser();
   if (!user) {
     throw new UnauthorizedError();
   }

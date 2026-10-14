@@ -4,9 +4,12 @@ Personal training log for one user (**Focus**). Log the day's workout set by set
 
 This is a mobile-first, dark-mode, installable PWA. There is no public MCP endpoint yet.
 
+`/` is a **public marketing homepage** (no login). The authenticated log lives at `/today`. The calendar stays behind login. A signed-in visitor hitting `/` is sent to `/today`; when the Auth stub is on, `/` stays public and the hero shows **Open app**.
+
 ## What it does
 
-- **Today** — one scrolling page for a date: warmup, exercises, rest timer, cooldown, fueling, daily extras, food, sleep.
+- **Home** — logged-out marketing page: hero, feature sections (Today, warmup/fueling, food, sleep/knees, calendar, travel), closing CTA.
+- **Today** (`/today`) — one scrolling page for a date: warmup, exercises, rest timer, cooldown, fueling, daily extras, food, sleep.
 - **Date picker** — tap the date to open a month calendar; previous/next day arrows; past days stay editable.
 - **Workouts** — weekday templates live in Postgres (home and travel variants). Sets are logged weight × reps and prefilled from the last time that exercise was logged. Tap ⏱ to start a 90s rest timer.
 - **Travel mode** — a start/end date range, not a global switch. Days inside the range use hotel-gym / bodyweight weekday templates with the same training intent. It turns off after the end date. Calendar events do not auto-toggle travel (future).
@@ -35,7 +38,7 @@ pnpm db:seed
 pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). Until `AUTH0_CLIENT_SECRET` is set, the stub user **Focus** is signed in automatically.
+Open [http://localhost:3000](http://localhost:3000) for the public homepage. The log is [http://localhost:3000/today](http://localhost:3000/today). Until `AUTH0_CLIENT_SECRET` is set, the stub user **Focus** is signed in automatically on app routes; `/` still loads without Auth0.
 
 ### Database
 
@@ -99,7 +102,7 @@ Auth0 tenant: **demo-showcase**. Application: **otter-train**. OIDC issuer is `h
 
 ## Auth (Auth0 wired, stub fallback)
 
-All reads and writes are scoped to `getCurrentUser()` in `lib/auth.ts`. `lib/auth0.ts` uses `@auth0/nextjs-auth0` v4 (`Auth0Client` + `proxy.ts` middleware on `/auth/*`).
+All reads and writes are scoped to `getCurrentUser()` in `lib/auth.ts`. `lib/auth0.ts` uses `@auth0/nextjs-auth0` v4 (`Auth0Client` + `proxy.ts` middleware on `/auth/*`). `proxy.ts` lets `/` (and `/marketing/*` assets) through without a session so the homepage never 307s to Auth0. `/today`, `/calendar`, and `/api/*` still require a session when the stub is off.
 
 Real login turns on automatically once `AUTH0_CLIENT_SECRET` is set (or set `AUTH_STUB=false`). The first authenticated Auth0 `sub` gets the weekday plan, habits, and staples seeded on first request.
 

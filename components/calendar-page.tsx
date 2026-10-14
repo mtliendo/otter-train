@@ -67,7 +67,7 @@ export function CalendarPage() {
           month={month}
           selectedDate={today}
           marks={marks}
-          onSelect={(isoDate) => router.push(`/?date=${isoDate}`)}
+          onSelect={(isoDate) => router.push(`/today?date=${isoDate}`)}
         />
       </div>
 

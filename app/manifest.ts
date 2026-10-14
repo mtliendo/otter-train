@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "otter-train",
     short_name: "otter-train",
     description: "Personal training log for Focus — workouts, food, and sleep.",
-    start_url: "/",
+    start_url: "/today",
     display: "standalone",
     background_color: "#0c1210",
     theme_color: "#0c1210",

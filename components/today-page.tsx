@@ -72,7 +72,7 @@ export function TodayPage() {
 
   function goTo(nextDate: string) {
     setPickerOpen(false);
-    router.push(`/?date=${nextDate}`);
+    router.push(`/today?date=${nextDate}`);
   }
 
   async function patchDay(patch: Record<string, unknown>) {

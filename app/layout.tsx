@@ -1,6 +1,6 @@
+import type { ReactNode } from "react";
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { AppNav } from "@/components/app-nav";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -14,8 +14,12 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "otter-train",
-  description: "Personal training log for Focus — workouts, food, and sleep.",
+  title: {
+    default: "otter-train",
+    template: "%s · otter-train",
+  },
+  description:
+    "Focus's training log — sets, protein, sleep, and a knee rule that shows up before Friday.",
   applicationName: "otter-train",
   appleWebApp: {
     capable: true,
@@ -38,16 +42,13 @@ export const viewport: Viewport = {
   maximumScale: 1,
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html
       lang="en"
       className={`dark ${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full bg-ink-950 text-stone-100">
-        {children}
-        <AppNav />
-      </body>
+      <body className="min-h-full bg-ink-950 text-stone-100">{children}</body>
     </html>
   );
 }
