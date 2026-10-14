@@ -116,7 +116,7 @@ Existing rows stay user-scoped by `user_id`. Local stub data lives under `auth0|
 
 ## Deploy (Vercel)
 
-Vercel project: **otter-train** (`prj_C6iYr3rYBdAQoAh3GDMKpLV1zLsD`) on team **Focus Otter's projects**, linked to `mtliendo/otter-train`. Production domain: `https://otter-train.vercel.app`. Do not promote this PR to production.
+Vercel project: **otter-train** (`prj_C6iYr3rYBdAQoAh3GDMKpLV1zLsD`) on team **Focus Otter's projects**, Git-linked to GitHub `mtliendo/otter-train`. Production branch is `main`: every push or merge to `main` auto-deploys production. Production domain: `https://otter-train.vercel.app`. Auto-assign of production domains is on.
 
 Permanent Neon project **otter-train** (`summer-darkness-11061970`, `aws-us-east-1`) is attached on Vercel via `DATABASE_URL` (pooled) and `DATABASE_URL_UNPOOLED` (direct) for Production / Preview / Development. Migrations and the Focus stub seed have been applied. First real Auth0 login still auto-seeds that user's plan.
 
