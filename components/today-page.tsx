@@ -198,6 +198,7 @@ export function TodayPage() {
         onSaved={setData}
       />
       <DayNoteCard key={`${date}-note`} date={date} notes={data.log?.notes ?? ""} onSaved={setData} />
+      <AmRowCard key={`${date}-am-row`} date={date} data={data} onSaved={setData} />
 
       {data.plan ? (
         <section className="px-4 pt-5">
@@ -485,6 +486,156 @@ function TravelCard({
             </button>
           ) : null}
         </div>
+      </div>
+    </section>
+  );
+}
+
+function AmRowCard({
+  date,
+  data,
+  onSaved,
+}: {
+  date: string;
+  data: DayPayload;
+  onSaved: (payload: DayPayload) => void;
+}) {
+  const row = data.amRow;
+  const [duration, setDuration] = useState(row.log.duration);
+  const [distance, setDistance] = useState(row.log.distance);
+  const [notes, setNotes] = useState(row.log.notes);
+  const hard = row.intensity === "hard";
+
+  async function save(patch: Record<string, unknown>) {
+    const response = await fetch("/api/am-row", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ date, ...patch }),
+    });
+    onSaved(await readJson<DayPayload>(response));
+  }
+
+  return (
+    <section className="px-4 pt-5">
+      <div className="rounded-2xl border border-ink-700 bg-ink-900 p-3">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs uppercase tracking-wide text-teal-300">AM Row</p>
+            <h2 className="text-lg font-semibold text-stone-50">{row.title}</h2>
+            <p className="mt-1 text-sm text-stone-300">{row.description}</p>
+          </div>
+          <div className="flex shrink-0 flex-col items-end gap-1">
+            <span
+              className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+                hard ? "bg-rose-300 text-ink-950" : "bg-teal-400 text-ink-950"
+              }`}
+            >
+              {hard ? "HARD" : "EASY"}
+            </span>
+            {row.optional ? (
+              <span className="rounded-full bg-ink-700 px-2.5 py-1 text-[11px] font-semibold text-stone-200">
+                Optional
+              </span>
+            ) : null}
+          </div>
+        </div>
+
+        <p className="mt-2 text-xs leading-relaxed text-stone-400">{row.intensityReason}</p>
+        {row.fallback ? (
+          <p className="mt-2 text-xs text-amber-100/80">
+            Concept2 fetch missed — using the easy steady-row fallback.
+          </p>
+        ) : (
+          <a
+            href={row.sourceUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-2 inline-block text-xs text-teal-300 underline-offset-2 hover:underline"
+          >
+            Concept2 RowErg WOD
+          </a>
+        )}
+
+        {data.travel.active ? (
+          <p className="mt-2 text-xs text-stone-400">
+            Travel day — keep this morning row, then the hotel / bodyweight plan below.
+            {data.log?.notes ? " Trip notes on this day still apply." : ""}
+          </p>
+        ) : null}
+
+        {row.kneeCaution ? (
+          <div className="mt-3 rounded-xl border border-amber-300/40 bg-amber-300/10 px-3 py-2">
+            <p className="text-sm font-semibold text-amber-100">Skip or keep it very light</p>
+            <p className="mt-1 text-xs text-amber-100/80">
+              Morning knee pain is {data.sleep?.kneePain}/10. HARD is downgraded to EASY / optional.
+            </p>
+          </div>
+        ) : null}
+
+        <div className="mt-3 flex gap-2">
+          <button
+            type="button"
+            onClick={() => void save({ status: row.log.status === "done" ? null : "done" })}
+            className={`rounded-lg px-3 py-2 text-sm font-semibold ${
+              row.log.status === "done"
+                ? "bg-teal-400 text-ink-950"
+                : "bg-ink-700 text-stone-200"
+            }`}
+          >
+            Done
+          </button>
+          <button
+            type="button"
+            onClick={() => void save({ status: row.log.status === "skipped" ? null : "skipped" })}
+            className={`rounded-lg px-3 py-2 text-sm font-semibold ${
+              row.log.status === "skipped"
+                ? "bg-amber-300 text-ink-950"
+                : "bg-ink-700 text-stone-200"
+            }`}
+          >
+            Skipped
+          </button>
+        </div>
+
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <label className="text-xs text-stone-400">
+            Time
+            <input
+              value={duration}
+              onChange={(event) => setDuration(event.target.value)}
+              onBlur={() => {
+                if (duration !== row.log.duration) void save({ duration: duration || null });
+              }}
+              placeholder={row.previous?.duration ?? "21:30"}
+              className="mt-1 w-full rounded-lg border border-ink-600 bg-ink-950 px-3 py-2 text-sm text-stone-100"
+            />
+          </label>
+          <label className="text-xs text-stone-400">
+            Distance
+            <input
+              value={distance}
+              onChange={(event) => setDistance(event.target.value)}
+              onBlur={() => {
+                if (distance !== row.log.distance) void save({ distance: distance || null });
+              }}
+              placeholder={row.previous?.distance ?? "4500 m"}
+              className="mt-1 w-full rounded-lg border border-ink-600 bg-ink-950 px-3 py-2 text-sm text-stone-100"
+            />
+          </label>
+        </div>
+        <label className="mt-2 block text-xs text-stone-400">
+          Notes
+          <textarea
+            value={notes}
+            onChange={(event) => setNotes(event.target.value)}
+            onBlur={() => {
+              if (notes !== row.log.notes) void save({ notes: notes || null });
+            }}
+            rows={2}
+            placeholder="Split, feel, hotel rower, skipped pieces…"
+            className="mt-1 w-full rounded-lg border border-ink-600 bg-ink-950 px-3 py-2 text-sm text-stone-100"
+          />
+        </label>
       </div>
     </section>
   );

@@ -165,3 +165,27 @@ export const sleepLogs = pgTable(
   },
   (table) => [uniqueIndex("sleep_logs_user_date").on(table.userId, table.date)],
 );
+
+export const concept2Wods = pgTable("concept2_wods", {
+  date: date("date").primaryKey(),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  sourceUrl: text("source_url").notNull(),
+  fallback: boolean("fallback").notNull().default(false),
+  fetchedAt: timestamp("fetched_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const amRowLogs = pgTable(
+  "am_row_logs",
+  {
+    id: serial("id").primaryKey(),
+    userId: text("user_id").notNull(),
+    date: date("date").notNull(),
+    status: text("status"),
+    duration: text("duration"),
+    distance: text("distance"),
+    notes: text("notes"),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex("am_row_logs_user_date").on(table.userId, table.date)],
+);

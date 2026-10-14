@@ -15,6 +15,13 @@
       "when": 1791952370875,
       "tag": "0001_spooky_songbird",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792001608407,
+      "tag": "0002_marvelous_komodo",
+      "breakpoints": true
     }
   ]
 }

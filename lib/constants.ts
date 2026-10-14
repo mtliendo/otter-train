@@ -3,6 +3,12 @@ export const PROTEIN_TARGET_MAX = 200;
 export const CREATINE_GRAMS = 5;
 export const DEFAULT_REST_SECONDS = 90;
 export const KNEE_PAIN_JUMP_THRESHOLD = 3;
+export const EASY_ROW_GUIDANCE =
+  "Same structure at a conversational pace, about 20 spm.";
+export const FALLBACK_AM_ROW = {
+  title: "Easy steady row",
+  description: "20 minutes easy aerobic row if the Concept2 workout of the day is unavailable.",
+} as const;
 
 export const WEEKDAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
 
