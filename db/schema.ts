@@ -1,4 +1,5 @@
 import {
+  type AnyPgColumn,
   boolean,
   date,
   integer,
@@ -10,6 +11,17 @@ import {
   timestamp,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
+
+export type LoadType = "weight" | "bodyweight";
+export type EffortKind = "reps" | "seconds";
+
+export type RowInterval = {
+  index: number | null;
+  time: string | null;
+  distanceMeters: number | null;
+  split: string | null;
+  spm: number | null;
+};
 
 export const weekdayPlans = pgTable(
   "weekday_plans",
@@ -46,6 +58,10 @@ export const planExercises = pgTable("plan_exercises", {
   weekdayPlanId: integer("weekday_plan_id")
     .notNull()
     .references(() => weekdayPlans.id, { onDelete: "cascade" }),
+  parentExerciseId: integer("parent_exercise_id").references(
+    (): AnyPgColumn => planExercises.id,
+    { onDelete: "cascade" },
+  ),
   name: text("name").notNull(),
   prescription: text("prescription"),
   targetSets: integer("target_sets").notNull().default(1),
@@ -53,6 +69,8 @@ export const planExercises = pgTable("plan_exercises", {
   notes: text("notes"),
   sortOrder: integer("sort_order").notNull().default(0),
   isCircuit: boolean("is_circuit").notNull().default(false),
+  loadType: text("load_type").notNull().default("weight"),
+  effort: text("effort").notNull().default("reps"),
 });
 
 export const dailyHabits = pgTable("daily_habits", {
@@ -134,7 +152,10 @@ export const loggedSets = pgTable(
       .references(() => loggedExercises.id, { onDelete: "cascade" }),
     setIndex: integer("set_index").notNull(),
     weight: numeric("weight", { precision: 7, scale: 1 }),
+    addedWeight: numeric("added_weight", { precision: 7, scale: 1 }),
+    isBodyweight: boolean("is_bodyweight").notNull().default(false),
     reps: integer("reps"),
+    seconds: integer("seconds"),
     completed: boolean("completed").notNull().default(false),
   },
   (table) => [uniqueIndex("logged_sets_exercise_index").on(table.loggedExerciseId, table.setIndex)],
@@ -188,4 +209,50 @@ export const amRowLogs = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [uniqueIndex("am_row_logs_user_date").on(table.userId, table.date)],
+);
+
+export const weeklyWeights = pgTable(
+  "weekly_weights",
+  {
+    id: serial("id").primaryKey(),
+    userId: text("user_id").notNull(),
+    weekStart: date("week_start").notNull(),
+    weighDate: date("weigh_date").notNull(),
+    weightLb: numeric("weight_lb", { precision: 5, scale: 1 }).notNull(),
+    notes: text("notes"),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex("weekly_weights_user_week").on(table.userId, table.weekStart)],
+);
+
+export const rowPhotos = pgTable("row_photos", {
+  id: serial("id").primaryKey(),
+  amRowLogId: integer("am_row_log_id")
+    .notNull()
+    .references(() => amRowLogs.id, { onDelete: "cascade" }),
+  blobUrl: text("blob_url").notNull(),
+  pathname: text("pathname").notNull(),
+  contentType: text("content_type"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const rowSessionMetrics = pgTable(
+  "row_session_metrics",
+  {
+    id: serial("id").primaryKey(),
+    amRowLogId: integer("am_row_log_id")
+      .notNull()
+      .references(() => amRowLogs.id, { onDelete: "cascade" }),
+    totalTime: text("total_time"),
+    distanceMeters: integer("distance_meters"),
+    avgSplit: text("avg_split"),
+    avgSpm: numeric("avg_spm", { precision: 5, scale: 1 }),
+    watts: numeric("watts", { precision: 6, scale: 1 }),
+    heartRate: integer("heart_rate"),
+    intervals: jsonb("intervals").$type<RowInterval[]>().notNull().default([]),
+    confirmedAt: timestamp("confirmed_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex("row_session_metrics_am_row").on(table.amRowLogId)],
 );

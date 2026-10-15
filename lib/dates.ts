@@ -32,6 +32,15 @@ export function endOfWeekSaturday(isoDate: string): string {
   return addDays(startOfWeekSunday(isoDate), 6);
 }
 
+export function mondayOfWeek(isoDate: string): string {
+  return addDays(startOfWeekSunday(isoDate), 1);
+}
+
+export function formatWeekRange(weekStart: string): string {
+  const end = endOfWeekSaturday(weekStart);
+  return `${formatLongDate(weekStart)} – ${formatLongDate(end)}`;
+}
+
 export function formatLongDate(isoDate: string): string {
   return parseISODate(isoDate).toLocaleDateString("en-US", {
     weekday: "short",

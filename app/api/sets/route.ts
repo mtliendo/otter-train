@@ -9,7 +9,10 @@ export async function PATCH(request: Request) {
     name?: string;
     setIndex?: number;
     weight?: number | null;
+    addedWeight?: number | null;
+    isBodyweight?: boolean;
     reps?: number | null;
+    seconds?: number | null;
     completed?: boolean;
   };
 
@@ -23,7 +26,10 @@ export async function PATCH(request: Request) {
       name: body.name,
       setIndex: body.setIndex,
       weight: body.weight,
+      addedWeight: body.addedWeight,
+      isBodyweight: body.isBodyweight,
       reps: body.reps,
+      seconds: body.seconds,
       completed: body.completed,
     });
     return getDayResponse(user, date);

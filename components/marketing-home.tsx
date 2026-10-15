@@ -131,8 +131,15 @@ export function MarketingHome({ signedIn }: { signedIn: boolean }) {
               <Feature
                 kicker="AM Row"
                 title="Concept2's workout of the day, tagged hard or easy"
-                copy="A morning RowErg session from log.concept2.com, fetched server-side and cached per date. Monday and Tuesday are hard. Wednesday through Sunday stay easy at about 20 spm — Sunday is optional. Knee pain ≥ 3 downgrades hard to easy/optional."
+                copy="A morning RowErg session from log.concept2.com, fetched server-side and cached per date. Monday and Tuesday are hard. Wednesday through Sunday stay easy at about 20 spm — Sunday is optional. Knee pain ≥ 3 downgrades hard to easy/optional. Snap every PM5 screen — intervals included — then confirm the extracted totals before they save."
                 visual={<AmRowFeatureCard />}
+              />
+              <Feature
+                reverse
+                kicker="Report"
+                title="One week: what you planned, what you rowed, how the knees felt"
+                copy="Workouts completed vs planned, row split and distance from confirmed photos, weekly weight with a 4-week average, knee pain, and sleep. A page, not an email."
+                visual={<CalCard />}
               />
             </div>
           </div>
