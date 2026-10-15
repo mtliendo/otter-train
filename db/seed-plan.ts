@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNotNull } from "drizzle-orm";
 import {
   DEFAULT_TRAVEL_RANGE,
   FOOD_STAPLES,
@@ -12,7 +12,9 @@ import {
   WORKOUT_COOLDOWN,
   WORKOUT_WARMUP,
 } from "../lib/constants";
+import { defaultEffort, defaultLoadType } from "../lib/load";
 import type { AppDb } from "./index";
+import type { EffortKind, LoadType } from "./schema";
 import { dailyHabits, dayLogs, foodStaples, planExercises, travelRanges, weekdayPlans } from "./schema";
 
 type SeedExercise = {
@@ -22,6 +24,9 @@ type SeedExercise = {
   targetReps?: string;
   notes?: string;
   isCircuit?: boolean;
+  loadType?: LoadType;
+  effort?: EffortKind;
+  children?: SeedExercise[];
 };
 
 type SeedPlan = {
@@ -58,6 +63,7 @@ const homePlans: SeedPlan[] = [
         prescription: "3 sets near failure",
         targetSets: 3,
         notes: "Near failure each set",
+        loadType: "bodyweight",
       },
       { name: "Skull crushers", prescription: "3×12", targetSets: 3, targetReps: "12" },
       { name: "Curls", prescription: "3×12", targetSets: 3, targetReps: "12" },
@@ -84,9 +90,44 @@ const homePlans: SeedPlan[] = [
         targetSets: 8,
         notes: "1 min hard, 1 min easy",
       },
-      { name: "Planks", prescription: "3 rounds", targetSets: 3, isCircuit: true },
-      { name: "Side planks", prescription: "3 rounds", targetSets: 3, isCircuit: true },
-      { name: "Dead bugs", prescription: "3 rounds", targetSets: 3, isCircuit: true },
+      {
+        name: "Core circuit",
+        prescription: "3 rounds",
+        targetSets: 3,
+        isCircuit: true,
+        children: [
+          {
+            name: "Plank",
+            prescription: "30–45 s",
+            targetSets: 3,
+            notes: "Hold, not reps",
+            effort: "seconds",
+            loadType: "bodyweight",
+          },
+          {
+            name: "Side plank",
+            prescription: "30 s per side",
+            targetSets: 3,
+            effort: "seconds",
+            loadType: "bodyweight",
+          },
+          {
+            name: "Dead bugs",
+            prescription: "8–10 / side",
+            targetSets: 3,
+            targetReps: "8-10",
+            loadType: "bodyweight",
+          },
+        ],
+      },
+      {
+        name: "Copenhagen plank",
+        prescription: "2×20 s per side",
+        targetSets: 2,
+        notes: "Short lever, knee on bench",
+        effort: "seconds",
+        loadType: "bodyweight",
+      },
     ],
   },
   {
@@ -115,12 +156,54 @@ const homePlans: SeedPlan[] = [
     warmup: WORKOUT_WARMUP,
     cooldown: WORKOUT_COOLDOWN,
     exercises: [
-      { name: "Pull-ups", prescription: "4 sets", targetSets: 4 },
+      { name: "Pull-ups", prescription: "4 sets", targetSets: 4, loadType: "bodyweight" },
       { name: "Chest-supported DB rows", prescription: "4×10", targetSets: 4, targetReps: "10" },
       { name: "Single-arm KB rows", prescription: "3×10", targetSets: 3, targetReps: "10" },
-      { name: "Band pull-aparts", prescription: "3×15", targetSets: 3, targetReps: "15" },
+      {
+        name: "Band pull-aparts",
+        prescription: "3×15",
+        targetSets: 3,
+        targetReps: "15",
+        loadType: "bodyweight",
+      },
       { name: "Curls", prescription: "3×12", targetSets: 3, targetReps: "12" },
-      { name: "Oblique circuit", prescription: "3 rounds", targetSets: 3, isCircuit: true },
+      {
+        name: "Oblique circuit",
+        prescription: "3 rounds",
+        targetSets: 3,
+        isCircuit: true,
+        children: [
+          {
+            name: "Side plank",
+            prescription: "30 s per side",
+            targetSets: 3,
+            effort: "seconds",
+            loadType: "bodyweight",
+          },
+          {
+            name: "Copenhagen plank",
+            prescription: "20 s per side",
+            targetSets: 3,
+            notes: "Short lever, knee on bench",
+            effort: "seconds",
+            loadType: "bodyweight",
+          },
+          {
+            name: "Russian twists",
+            prescription: "20 total · 25 lb KB",
+            targetSets: 3,
+            targetReps: "20",
+            notes: "25 lb kettlebell",
+          },
+          {
+            name: "Suitcase carry",
+            prescription: "40 steps per side · 45 lb KB",
+            targetSets: 3,
+            targetReps: "40",
+            notes: "45 lb kettlebell",
+          },
+        ],
+      },
       { name: "Easy row", prescription: "15–20 min", targetSets: 1 },
     ],
   },
@@ -156,44 +239,52 @@ const homePlans: SeedPlan[] = [
     cooldown: WORKOUT_COOLDOWN,
     exercises: [
       {
-        name: "250 m row",
+        name: "Hybrid circuit",
         prescription: "4–5 rounds",
         targetSets: 5,
         isCircuit: true,
-      },
-      {
-        name: "KB swings",
-        prescription: "15 reps",
-        targetSets: 5,
-        targetReps: "15",
-        isCircuit: true,
-      },
-      {
-        name: "Push-ups",
-        prescription: "15 reps",
-        targetSets: 5,
-        targetReps: "15",
-        isCircuit: true,
-      },
-      {
-        name: "Vest squats",
-        prescription: "10 reps",
-        targetSets: 5,
-        targetReps: "10",
-        isCircuit: true,
-      },
-      {
-        name: "Jump rope",
-        prescription: "30 s",
-        targetSets: 5,
-        isCircuit: true,
-      },
-      {
-        name: "Single-leg calf raises",
-        prescription: "10 / side",
-        targetSets: 5,
-        targetReps: "10",
-        isCircuit: true,
+        children: [
+          {
+            name: "250 m row",
+            prescription: "250 m",
+            targetSets: 5,
+          },
+          {
+            name: "KB swings",
+            prescription: "15 reps",
+            targetSets: 5,
+            targetReps: "15",
+          },
+          {
+            name: "Push-ups",
+            prescription: "15 reps",
+            targetSets: 5,
+            targetReps: "15",
+            loadType: "bodyweight",
+          },
+          {
+            name: "Vest squats",
+            prescription: "10 reps",
+            targetSets: 5,
+            targetReps: "10",
+            notes: "Log the vest as + added weight",
+            loadType: "bodyweight",
+          },
+          {
+            name: "Jump rope",
+            prescription: "30 s",
+            targetSets: 5,
+            effort: "seconds",
+            loadType: "bodyweight",
+          },
+          {
+            name: "Single-leg calf raises",
+            prescription: "10 / side",
+            targetSets: 5,
+            targetReps: "10",
+            loadType: "bodyweight",
+          },
+        ],
       },
     ],
   },
@@ -226,7 +317,13 @@ const travelPlans: SeedPlan[] = [
     exercises: [
       { name: "Walk", prescription: "20–30 min", targetSets: 1 },
       { name: "Hips and calves mobility", prescription: "As needed", targetSets: 1 },
-      { name: "Spanish squat holds", prescription: "3×30–45 s", targetSets: 3 },
+      {
+        name: "Spanish squat holds",
+        prescription: "3×30–45 s",
+        targetSets: 3,
+        effort: "seconds",
+        loadType: "bodyweight",
+      },
     ],
   },
   {
@@ -255,8 +352,20 @@ const travelPlans: SeedPlan[] = [
       },
       { name: "Curls", prescription: "3×12", targetSets: 3, targetReps: "12" },
       { name: "Skull crushers", prescription: "3×12", targetSets: 3, targetReps: "12" },
-      { name: "Planks", prescription: "3 rounds", targetSets: 3, isCircuit: true },
-      { name: "Side planks", prescription: "3 rounds", targetSets: 3, isCircuit: true },
+      {
+        name: "Plank",
+        prescription: "3×30–45 s",
+        targetSets: 3,
+        effort: "seconds",
+        loadType: "bodyweight",
+      },
+      {
+        name: "Side plank",
+        prescription: "3×30 s per side",
+        targetSets: 3,
+        effort: "seconds",
+        loadType: "bodyweight",
+      },
       { name: "Easy rower or bike", prescription: "10 min", targetSets: 1 },
     ],
   },
@@ -299,8 +408,20 @@ const travelPlans: SeedPlan[] = [
     cooldown: [],
     exercises: [
       { name: "Airport walk", prescription: "Easy", targetSets: 1 },
-      { name: "Spanish squat holds", prescription: "3×30–45 s", targetSets: 3 },
-      { name: "Clamshells", prescription: "15 / side", targetSets: 2, targetReps: "15" },
+      {
+        name: "Spanish squat holds",
+        prescription: "3×30–45 s",
+        targetSets: 3,
+        effort: "seconds",
+        loadType: "bodyweight",
+      },
+      {
+        name: "Clamshells",
+        prescription: "15 / side",
+        targetSets: 2,
+        targetReps: "15",
+        loadType: "bodyweight",
+      },
     ],
   },
   {
@@ -325,7 +446,13 @@ const travelPlans: SeedPlan[] = [
       { name: "DB RDLs", prescription: "4×10", targetSets: 4, targetReps: "10" },
       { name: "Single-leg hip thrusts", prescription: "3×12", targetSets: 3, targetReps: "12" },
       { name: "Calf raises", prescription: "4×15", targetSets: 4, targetReps: "15" },
-      { name: "Spanish squat holds", prescription: "3×30–45 s", targetSets: 3 },
+      {
+        name: "Spanish squat holds",
+        prescription: "3×30–45 s",
+        targetSets: 3,
+        effort: "seconds",
+        loadType: "bodyweight",
+      },
     ],
   },
   {
@@ -367,7 +494,13 @@ const travelPlans: SeedPlan[] = [
     warmup: [],
     cooldown: [],
     exercises: [
-      { name: "Spanish squat holds", prescription: "3×30–45 s", targetSets: 3 },
+      {
+        name: "Spanish squat holds",
+        prescription: "3×30–45 s",
+        targetSets: 3,
+        effort: "seconds",
+        loadType: "bodyweight",
+      },
       { name: "Walk", prescription: "20–30 min", targetSets: 1 },
     ],
   },
@@ -408,20 +541,76 @@ async function insertPlans(db: AppDb, userId: string, plans: SeedPlan[]) {
       throw new Error(`Failed to insert ${plan.variant} plan ${plan.weekday}`);
     }
 
-    if (plan.exercises.length > 0) {
-      await db.insert(planExercises).values(
-        plan.exercises.map((exercise, index) => ({
-          weekdayPlanId: created.id,
-          name: exercise.name,
-          prescription: exercise.prescription,
-          targetSets: exercise.targetSets,
-          targetReps: exercise.targetReps,
-          notes: exercise.notes,
-          sortOrder: index,
-          isCircuit: exercise.isCircuit ?? false,
-        })),
-      );
+    await insertExerciseTree(db, created.id, plan.exercises);
+  }
+}
+
+async function insertExerciseTree(
+  db: AppDb,
+  weekdayPlanId: number,
+  exercises: SeedExercise[],
+  parentId: number | null = null,
+  startOrder = 0,
+) {
+  let order = startOrder;
+  for (const exercise of exercises) {
+    const [created] = await db
+      .insert(planExercises)
+      .values({
+        weekdayPlanId,
+        parentExerciseId: parentId,
+        name: exercise.name,
+        prescription: exercise.prescription,
+        targetSets: exercise.targetSets,
+        targetReps: exercise.targetReps,
+        notes: exercise.notes,
+        sortOrder: order,
+        isCircuit: exercise.isCircuit ?? Boolean(exercise.children?.length),
+        loadType: defaultLoadType(exercise.name, exercise.loadType),
+        effort: defaultEffort(exercise.name, exercise.effort),
+      })
+      .returning();
+
+    if (!created) {
+      throw new Error(`Failed to insert exercise ${exercise.name}`);
     }
+    order += 1;
+    if (exercise.children?.length) {
+      order = await insertExerciseTree(db, weekdayPlanId, exercise.children, created.id, order);
+    }
+  }
+  return order;
+}
+
+async function templatesNeedSync(db: AppDb, userId: string) {
+  const [child] = await db
+    .select({ id: planExercises.id })
+    .from(planExercises)
+    .innerJoin(weekdayPlans, eq(planExercises.weekdayPlanId, weekdayPlans.id))
+    .where(and(eq(weekdayPlans.userId, userId), eq(planExercises.name, "Russian twists")))
+    .limit(1);
+  return !child;
+}
+
+async function syncPlanExercises(db: AppDb, userId: string) {
+  for (const plan of [...homePlans, ...travelPlans]) {
+    const [existing] = await db
+      .select({ id: weekdayPlans.id })
+      .from(weekdayPlans)
+      .where(
+        and(
+          eq(weekdayPlans.userId, userId),
+          eq(weekdayPlans.weekday, plan.weekday),
+          eq(weekdayPlans.variant, plan.variant),
+        ),
+      )
+      .limit(1);
+    if (!existing) continue;
+    await db
+      .delete(planExercises)
+      .where(and(eq(planExercises.weekdayPlanId, existing.id), isNotNull(planExercises.parentExerciseId)));
+    await db.delete(planExercises).where(eq(planExercises.weekdayPlanId, existing.id));
+    await insertExerciseTree(db, existing.id, plan.exercises);
   }
 }
 
@@ -552,6 +741,11 @@ export async function seedUserPlan(
 
   if (!(await variantExists(db, userId, "travel"))) {
     await insertPlans(db, userId, travelPlans);
+    changed = true;
+  }
+
+  if (await templatesNeedSync(db, userId)) {
+    await syncPlanExercises(db, userId);
     changed = true;
   }
 

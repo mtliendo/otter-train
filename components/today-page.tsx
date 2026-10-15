@@ -4,11 +4,14 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { SignInCard, SignOutLink } from "@/components/auth-session";
 import { CalendarGrid } from "@/components/calendar-grid";
+import { ExerciseList } from "@/components/exercise-log";
+import { MorningCheckin } from "@/components/morning-checkin";
 import { RestTimer, useRestTimer } from "@/components/rest-timer";
+import { RowPhotoForm, RowSessionSummary } from "@/components/row-photo-form";
+import { WeighInCard } from "@/components/weigh-in-card";
 import { readJson } from "@/lib/client";
 import {
   CREATINE_GRAMS,
-  DEFAULT_REST_SECONDS,
   PROTEIN_TARGET_MAX,
   PROTEIN_TARGET_MIN,
 } from "@/lib/constants";
@@ -197,6 +200,8 @@ export function TodayPage() {
         data={data}
         onSaved={setData}
       />
+      <MorningCheckin key={`${date}-sleep`} date={date} data={data} onSaved={setData} />
+      <WeighInCard key={`${date}-weight`} date={date} data={data} onSaved={setData} />
       <DayNoteCard key={`${date}-note`} date={date} notes={data.log?.notes ?? ""} onSaved={setData} />
       <AmRowCard key={`${date}-am-row`} date={date} data={data} onSaved={setData} />
 
@@ -237,19 +242,14 @@ export function TodayPage() {
           <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-stone-400">
             Exercises
           </h2>
-          <div className="space-y-3">
-            {data.plan.exercises.map((exercise) => (
-              <ExerciseCard
-                key={exercise.id}
-                date={date}
-                exercise={exercise}
-                logged={data.log?.exercises.find((item) => item.name === exercise.name)}
-                previous={data.previousByExercise[exercise.name] ?? []}
-                onSaved={setData}
-                onStartTimer={timer.start}
-              />
-            ))}
-          </div>
+          <ExerciseList
+            date={date}
+            exercises={data.plan.exercises}
+            logged={data.log?.exercises}
+            previousByExercise={data.previousByExercise}
+            onSaved={setData}
+            onStartTimer={timer.start}
+          />
         </section>
       ) : null}
 
@@ -314,7 +314,6 @@ export function TodayPage() {
       ) : null}
 
       <FoodSection date={date} data={data} onSaved={setData} onPatchDay={patchDay} />
-      <SleepSection key={date} date={date} data={data} onSaved={setData} />
 
       <RestTimer running={timer.running} seconds={timer.seconds} onStop={timer.stop} />
 
@@ -636,6 +635,8 @@ function AmRowCard({
             className="mt-1 w-full rounded-lg border border-ink-600 bg-ink-950 px-3 py-2 text-sm text-stone-100"
           />
         </label>
+        <RowSessionSummary data={data} />
+        <RowPhotoForm date={date} data={data} onSaved={onSaved} />
       </div>
     </section>
   );
@@ -768,139 +769,6 @@ function CheckRow({
   );
 }
 
-function ExerciseCard({
-  date,
-  exercise,
-  logged,
-  previous,
-  onSaved,
-  onStartTimer,
-}: {
-  date: string;
-  exercise: NonNullable<DayPayload["plan"]>["exercises"][number];
-  logged?: NonNullable<DayPayload["log"]>["exercises"][number];
-  previous: { setIndex: number; weight: number | null; reps: number | null }[];
-  onSaved: (payload: DayPayload) => void;
-  onStartTimer: (seconds?: number) => void;
-}) {
-  return (
-    <article className="rounded-2xl border border-ink-700 bg-ink-900 p-3">
-      <div className="mb-2">
-        <h3 className="font-medium text-stone-50">{exercise.name}</h3>
-        <p className="text-xs text-stone-400">
-          {[exercise.prescription, exercise.notes].filter(Boolean).join(" · ")}
-        </p>
-      </div>
-      <div className="space-y-2">
-        {Array.from({ length: exercise.targetSets }, (_, index) => {
-          const setIndex = index + 1;
-          const saved = logged?.sets.find((set) => set.setIndex === setIndex);
-          const prior = previous.find((set) => set.setIndex === setIndex);
-          return (
-            <SetRow
-              key={`${date}-${exercise.id}-${setIndex}`}
-              date={date}
-              exerciseName={exercise.name}
-              planExerciseId={exercise.id}
-              setIndex={setIndex}
-              saved={saved}
-              prior={prior}
-              onSaved={onSaved}
-              onStartTimer={onStartTimer}
-            />
-          );
-        })}
-      </div>
-    </article>
-  );
-}
-
-function SetRow({
-  date,
-  exerciseName,
-  planExerciseId,
-  setIndex,
-  saved,
-  prior,
-  onSaved,
-  onStartTimer,
-}: {
-  date: string;
-  exerciseName: string;
-  planExerciseId: number;
-  setIndex: number;
-  saved?: { weight: number | null; reps: number | null; completed: boolean };
-  prior?: { weight: number | null; reps: number | null };
-  onSaved: (payload: DayPayload) => void;
-  onStartTimer: (seconds?: number) => void;
-}) {
-  const [weight, setWeight] = useState(
-    saved?.weight != null ? String(saved.weight) : prior?.weight != null ? String(prior.weight) : "",
-  );
-  const [reps, setReps] = useState(
-    saved?.reps != null ? String(saved.reps) : prior?.reps != null ? String(prior.reps) : "",
-  );
-  const completed = saved?.completed ?? false;
-
-  async function save(next?: { completed?: boolean }) {
-    const response = await fetch("/api/sets", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        date,
-        name: exerciseName,
-        planExerciseId,
-        setIndex,
-        weight: weight === "" ? null : Number(weight),
-        reps: reps === "" ? null : Number(reps),
-        completed: next?.completed ?? completed,
-      }),
-    });
-    onSaved(await readJson<DayPayload>(response));
-  }
-
-  return (
-    <div className="grid grid-cols-[2rem_1fr_1fr_auto_auto] items-center gap-2">
-      <span className="text-xs text-stone-500">{setIndex}</span>
-      <input
-        inputMode="decimal"
-        placeholder="lb"
-        value={weight}
-        onChange={(event) => setWeight(event.target.value)}
-        onBlur={() => void save()}
-        className="w-full rounded-lg border border-ink-600 bg-ink-950 px-2 py-2 text-sm text-stone-100"
-        aria-label={`Set ${setIndex} weight`}
-      />
-      <input
-        inputMode="numeric"
-        placeholder="reps"
-        value={reps}
-        onChange={(event) => setReps(event.target.value)}
-        onBlur={() => void save()}
-        className="w-full rounded-lg border border-ink-600 bg-ink-950 px-2 py-2 text-sm text-stone-100"
-        aria-label={`Set ${setIndex} reps`}
-      />
-      <button
-        type="button"
-        onClick={() => void save({ completed: !completed })}
-        className={`h-9 w-9 rounded-lg text-sm font-semibold ${
-          completed ? "bg-teal-400 text-ink-950" : "bg-ink-700 text-stone-300"
-        }`}
-        aria-label={`Mark set ${setIndex} complete`}
-      >
-        ✓
-      </button>
-      <button
-        type="button"
-        onClick={() => onStartTimer(DEFAULT_REST_SECONDS)}
-        className="h-9 w-9 rounded-lg bg-ink-700 text-amber-200"
-        aria-label={`Start ${DEFAULT_REST_SECONDS}s rest`}
-      >
-        ⏱
-      </button>
-    </div>
-  );
-}
 
 function FoodSection({
   date,
@@ -1046,105 +914,3 @@ function FoodSection({
   );
 }
 
-function SleepSection({
-  date,
-  data,
-  onSaved,
-}: {
-  date: string;
-  data: DayPayload;
-  onSaved: (payload: DayPayload) => void;
-}) {
-  const [bedtime, setBedtime] = useState(data.sleep?.bedtime ?? "22:30");
-  const [wakeTime, setWakeTime] = useState(data.sleep?.wakeTime ?? "06:30");
-  const [quality, setQuality] = useState(data.sleep?.quality ?? 3);
-  const [kneePain, setKneePain] = useState(data.sleep?.kneePain ?? 0);
-
-  async function save(next?: Partial<{ quality: number; kneePain: number }>) {
-    const response = await fetch("/api/sleep", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        date,
-        bedtime,
-        wakeTime,
-        quality: next?.quality ?? quality,
-        kneePain: next?.kneePain ?? kneePain,
-      }),
-    });
-    onSaved(await readJson<DayPayload>(response));
-  }
-
-  return (
-    <section className="px-4 pt-5">
-      <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-stone-400">
-        Sleep
-      </h2>
-      <div className="rounded-2xl border border-ink-700 bg-ink-900 p-3">
-        <p className="mb-3 text-xs text-stone-400">Morning entry. Past days stay editable.</p>
-        <div className="grid grid-cols-2 gap-3">
-          <label className="text-xs text-stone-400">
-            Bedtime
-            <input
-              type="time"
-              value={bedtime}
-              onChange={(event) => setBedtime(event.target.value)}
-              onBlur={() => void save()}
-              className="mt-1 w-full rounded-lg border border-ink-600 bg-ink-950 px-3 py-2 text-sm text-stone-100"
-            />
-          </label>
-          <label className="text-xs text-stone-400">
-            Wake
-            <input
-              type="time"
-              value={wakeTime}
-              onChange={(event) => setWakeTime(event.target.value)}
-              onBlur={() => void save()}
-              className="mt-1 w-full rounded-lg border border-ink-600 bg-ink-950 px-3 py-2 text-sm text-stone-100"
-            />
-          </label>
-        </div>
-        <p className="mb-2 mt-4 text-xs text-stone-400">Quality 1–5</p>
-        <div className="flex gap-2">
-          {[1, 2, 3, 4, 5].map((value) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() => {
-                setQuality(value);
-                void save({ quality: value });
-              }}
-              className={`h-9 flex-1 rounded-lg text-sm ${
-                quality === value ? "bg-amber-300 text-ink-950" : "bg-ink-800 text-stone-200"
-              }`}
-            >
-              {value}
-            </button>
-          ))}
-        </div>
-        <p className="mb-2 mt-4 text-xs text-stone-400">Next-morning knee pain 0–10</p>
-        <div className="grid grid-cols-11 gap-1">
-          {Array.from({ length: 11 }, (_, value) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() => {
-                setKneePain(value);
-                void save({ kneePain: value });
-              }}
-              className={`h-8 rounded-md text-[11px] ${
-                kneePain === value
-                  ? value >= 3
-                    ? "bg-amber-300 text-ink-950"
-                    : "bg-teal-400 text-ink-950"
-                  : "bg-ink-800 text-stone-300"
-              }`}
-            >
-              {value}
-            </button>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}

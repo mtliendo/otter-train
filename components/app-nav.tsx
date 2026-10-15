@@ -8,8 +8,9 @@ export function AppNav() {
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-ink-700 bg-ink-950/95 pb-[env(safe-area-inset-bottom)] backdrop-blur">
-      <div className="mx-auto grid max-w-lg grid-cols-2">
+      <div className="mx-auto grid max-w-lg grid-cols-3">
         <NavLink href="/today" active={pathname.startsWith("/today")} label="Today" />
+        <NavLink href="/report" active={pathname.startsWith("/report")} label="Report" />
         <NavLink href="/calendar" active={pathname.startsWith("/calendar")} label="Calendar" />
       </div>
     </nav>

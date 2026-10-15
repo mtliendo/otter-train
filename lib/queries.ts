@@ -12,21 +12,56 @@ import {
   loggedExercises,
   loggedSets,
   planExercises,
+  rowPhotos,
+  rowSessionMetrics,
   sleepLogs,
   travelRanges,
   weekdayPlans,
+  weeklyWeights,
 } from "@/db/schema";
 import { concept2WodUrl, fetchConcept2Wod, resolveAmRowIntensity } from "./am-row";
 import { isAuthStubEnabled } from "./auth";
 import { FALLBACK_AM_ROW, KNEE_PAIN_JUMP_THRESHOLD, PROTEIN_TARGET_MIN } from "./constants";
 import { addDays, eachDateInRange, endOfWeekSaturday, isDateInRange, startOfWeekSunday, weekdayIndex } from "./dates";
 import { travelKneeGuardrails } from "./knee-guardrails";
-import type { AmRowPayload, AmRowStatus, FoodStapleSet, TravelRange } from "./types";
+import { defaultEffort, defaultLoadType } from "./load";
+import { formatMeters } from "./row-extract";
+import type {
+  AmRowPayload,
+  AmRowStatus,
+  EffortKind,
+  FoodStapleSet,
+  LoadType,
+  ReportPayload,
+  RowInterval,
+  TravelRange,
+  WeeklyWeight,
+} from "./types";
 
 function num(value: string | null | undefined): number | null {
   if (value == null || value === "") return null;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+type DayPreviousMap = Record<
+  string,
+  {
+    setIndex: number;
+    weight: number | null;
+    addedWeight: number | null;
+    isBodyweight: boolean;
+    reps: number | null;
+    seconds: number | null;
+  }[]
+>;
+
+function asLoadType(value: string | null | undefined, name: string): LoadType {
+  return value === "bodyweight" || value === "weight" ? value : defaultLoadType(name);
+}
+
+function asEffort(value: string | null | undefined, name: string): EffortKind {
+  return value === "seconds" || value === "reps" ? value : defaultEffort(name);
 }
 
 export async function getDayResponse(user: { id: string; name: string }, date: string) {
@@ -128,8 +163,7 @@ export async function getDayPayload(userId: string, date: string) {
     .orderBy(sleepLogs.date)
     .limit(1);
 
-  const previousByExercise: Record<string, { setIndex: number; weight: number | null; reps: number | null }[]> =
-    {};
+  const previousByExercise: DayPreviousMap = {};
 
   for (const exercise of exercises) {
     const [latest] = await db
@@ -160,7 +194,10 @@ export async function getDayPayload(userId: string, date: string) {
     previousByExercise[exercise.name] = prevSets.map((set) => ({
       setIndex: set.setIndex,
       weight: num(set.weight),
+      addedWeight: num(set.addedWeight),
+      isBodyweight: set.isBodyweight,
       reps: set.reps,
+      seconds: set.seconds,
     }));
   }
 
@@ -213,7 +250,10 @@ export async function getDayPayload(userId: string, date: string) {
           id: set.id,
           setIndex: set.setIndex,
           weight: num(set.weight),
+          addedWeight: num(set.addedWeight),
+          isBodyweight: set.isBodyweight,
           reps: set.reps,
+          seconds: set.seconds,
           completed: set.completed,
         })),
       })),
@@ -295,12 +335,15 @@ export async function getDayPayload(userId: string, date: string) {
           },
           exercises: exercises.map((exercise) => ({
             id: exercise.id,
+            parentExerciseId: exercise.parentExerciseId,
             name: exercise.name,
             prescription: exercise.prescription,
             targetSets: exercise.targetSets,
             targetReps: exercise.targetReps,
             notes: exercise.notes,
             isCircuit: exercise.isCircuit,
+            loadType: asLoadType(exercise.loadType, exercise.name),
+            effort: asEffort(exercise.effort, exercise.name),
           })),
           habits: habits.map((habit) => ({
             id: habit.id,
@@ -329,6 +372,7 @@ export async function getDayPayload(userId: string, date: string) {
         }
       : null,
     amRow: await getAmRowPayload(userId, date, sleep?.kneePain ?? null),
+    weight: await getWeightPayload(userId, date),
   };
 }
 
@@ -423,6 +467,22 @@ async function getAmRowPayload(
     .orderBy(desc(amRowLogs.date))
     .limit(1);
 
+  const photos = rowLog
+    ? await db
+        .select()
+        .from(rowPhotos)
+        .where(eq(rowPhotos.amRowLogId, rowLog.id))
+        .orderBy(rowPhotos.sortOrder)
+    : [];
+
+  const [metrics] = rowLog
+    ? await db
+        .select()
+        .from(rowSessionMetrics)
+        .where(eq(rowSessionMetrics.amRowLogId, rowLog.id))
+        .limit(1)
+    : [];
+
   return {
     date,
     sourceUrl: wod.sourceUrl,
@@ -440,6 +500,23 @@ async function getAmRowPayload(
       ? {
           duration: previous.duration,
           distance: previous.distance,
+        }
+      : null,
+    photos: photos.map((photo) => ({
+      id: photo.id,
+      url: photo.blobUrl,
+      pathname: photo.pathname,
+    })),
+    metrics: metrics
+      ? {
+          totalTime: metrics.totalTime,
+          distanceMeters: metrics.distanceMeters,
+          avgSplit: metrics.avgSplit,
+          avgSpm: num(metrics.avgSpm),
+          watts: num(metrics.watts),
+          heartRate: metrics.heartRate,
+          intervals: (metrics.intervals ?? []) as RowInterval[],
+          confirmedAt: metrics.confirmedAt.toISOString(),
         }
       : null,
   };
@@ -554,7 +631,10 @@ export async function upsertSet(
     name: string;
     setIndex: number;
     weight?: number | null;
+    addedWeight?: number | null;
+    isBodyweight?: boolean;
     reps?: number | null;
+    seconds?: number | null;
     completed?: boolean;
   },
 ) {
@@ -593,7 +673,10 @@ export async function upsertSet(
 
   const values = {
     weight: input.weight == null ? null : input.weight.toFixed(1),
+    addedWeight: input.addedWeight == null ? null : input.addedWeight.toFixed(1),
+    isBodyweight: input.isBodyweight ?? existingSet?.isBodyweight ?? false,
     reps: input.reps ?? null,
+    seconds: input.seconds ?? null,
     completed: input.completed ?? existingSet?.completed ?? false,
   };
 
@@ -828,4 +911,260 @@ export async function deleteTravelRange(userId: string, id: number) {
   }
 
   await db.delete(travelRanges).where(eq(travelRanges.id, existing.id));
+}
+
+function withRollingAverage(rows: { weekStart: string; weighDate: string; weightLb: number; id: number; notes: string | null }[]): WeeklyWeight[] {
+  return rows.map((row, index) => {
+    const window = rows.slice(Math.max(0, index - 3), index + 1);
+    const avg = window.reduce((sum, item) => sum + item.weightLb, 0) / window.length;
+    return {
+      ...row,
+      rollingAvg4: Math.round(avg * 10) / 10,
+    };
+  });
+}
+
+export async function getWeightPayload(userId: string, date: string) {
+  const db = getDb();
+  const weekStart = startOfWeekSunday(date);
+  const rows = await db
+    .select()
+    .from(weeklyWeights)
+    .where(eq(weeklyWeights.userId, userId))
+    .orderBy(weeklyWeights.weekStart);
+
+  const mapped = withRollingAverage(
+    rows.map((row) => ({
+      id: row.id,
+      weekStart: row.weekStart,
+      weighDate: row.weighDate,
+      weightLb: num(row.weightLb) ?? 0,
+      notes: row.notes,
+    })),
+  );
+
+  return {
+    thisWeek: mapped.find((row) => row.weekStart === weekStart) ?? null,
+    history: mapped.slice(-12),
+  };
+}
+
+export async function upsertWeeklyWeight(
+  userId: string,
+  input: { date: string; weightLb: number; notes?: string | null; weekStart?: string },
+) {
+  const db = getDb();
+  const weekStart = input.weekStart ?? startOfWeekSunday(input.date);
+  const [existing] = await db
+    .select()
+    .from(weeklyWeights)
+    .where(and(eq(weeklyWeights.userId, userId), eq(weeklyWeights.weekStart, weekStart)))
+    .limit(1);
+
+  const values = {
+    weighDate: input.date,
+    weightLb: input.weightLb.toFixed(1),
+    notes: input.notes ?? null,
+    updatedAt: new Date(),
+  };
+
+  if (existing) {
+    await db.update(weeklyWeights).set(values).where(eq(weeklyWeights.id, existing.id));
+    return;
+  }
+
+  await db.insert(weeklyWeights).values({
+    userId,
+    weekStart,
+    ...values,
+  });
+}
+
+export async function ensureAmRowLog(userId: string, date: string) {
+  const db = getDb();
+  const [existing] = await db
+    .select()
+    .from(amRowLogs)
+    .where(and(eq(amRowLogs.userId, userId), eq(amRowLogs.date, date)))
+    .limit(1);
+  if (existing) return existing;
+
+  const [created] = await db.insert(amRowLogs).values({ userId, date }).returning();
+  if (!created) throw new Error("Failed to create AM row log");
+  return created;
+}
+
+export async function confirmRowSession(
+  userId: string,
+  date: string,
+  input: {
+    photos: { url: string; pathname: string; contentType?: string | null }[];
+    metrics: {
+      totalTime: string | null;
+      distanceMeters: number | null;
+      avgSplit: string | null;
+      avgSpm: number | null;
+      watts: number | null;
+      heartRate: number | null;
+      intervals: RowInterval[];
+    };
+  },
+) {
+  const db = getDb();
+  const rowLog = await ensureAmRowLog(userId, date);
+
+  await db.delete(rowPhotos).where(eq(rowPhotos.amRowLogId, rowLog.id));
+  if (input.photos.length > 0) {
+    await db.insert(rowPhotos).values(
+      input.photos.map((photo, index) => ({
+        amRowLogId: rowLog.id,
+        blobUrl: photo.url,
+        pathname: photo.pathname,
+        contentType: photo.contentType ?? null,
+        sortOrder: index,
+      })),
+    );
+  }
+
+  const metricValues = {
+    totalTime: input.metrics.totalTime,
+    distanceMeters: input.metrics.distanceMeters,
+    avgSplit: input.metrics.avgSplit,
+    avgSpm: input.metrics.avgSpm == null ? null : input.metrics.avgSpm.toFixed(1),
+    watts: input.metrics.watts == null ? null : input.metrics.watts.toFixed(1),
+    heartRate: input.metrics.heartRate,
+    intervals: input.metrics.intervals,
+    confirmedAt: new Date(),
+    updatedAt: new Date(),
+  };
+
+  const [existing] = await db
+    .select()
+    .from(rowSessionMetrics)
+    .where(eq(rowSessionMetrics.amRowLogId, rowLog.id))
+    .limit(1);
+
+  if (existing) {
+    await db.update(rowSessionMetrics).set(metricValues).where(eq(rowSessionMetrics.id, existing.id));
+  } else {
+    await db.insert(rowSessionMetrics).values({
+      amRowLogId: rowLog.id,
+      ...metricValues,
+    });
+  }
+
+  const duration = rowLog.duration || input.metrics.totalTime;
+  const distance = rowLog.distance || formatMeters(input.metrics.distanceMeters);
+  await db
+    .update(amRowLogs)
+    .set({
+      duration,
+      distance,
+      status: rowLog.status ?? "done",
+      updatedAt: new Date(),
+    })
+    .where(eq(amRowLogs.id, rowLog.id));
+}
+
+function parseClock(value: string): number | null {
+  const match = /^(\d{1,2}):(\d{2})$/.exec(value);
+  if (!match) return null;
+  return Number(match[1]) * 60 + Number(match[2]);
+}
+
+function sleepHours(bedtime: string, wakeTime: string): number | null {
+  const bed = parseClock(bedtime);
+  const wake = parseClock(wakeTime);
+  if (bed == null || wake == null) return null;
+  let minutes = wake - bed;
+  if (minutes <= 0) minutes += 24 * 60;
+  return Math.round((minutes / 60) * 10) / 10;
+}
+
+export async function getReportPayload(userId: string, date: string): Promise<ReportPayload> {
+  const db = getDb();
+  await ensureUserSeeded(db, userId);
+  const weekStart = startOfWeekSunday(date);
+  const weekEnd = endOfWeekSaturday(date);
+
+  const userPlans = await db
+    .select()
+    .from(weekdayPlans)
+    .where(eq(weekdayPlans.userId, userId));
+  const rangeRows = await db.select().from(travelRanges).where(eq(travelRanges.userId, userId));
+  const ranges = rangeRows.map(toTravelRange);
+
+  const logs = await db
+    .select()
+    .from(dayLogs)
+    .where(and(eq(dayLogs.userId, userId), gte(dayLogs.date, weekStart), lte(dayLogs.date, weekEnd)));
+  const sleepRows = await db
+    .select()
+    .from(sleepLogs)
+    .where(and(eq(sleepLogs.userId, userId), gte(sleepLogs.date, weekStart), lte(sleepLogs.date, weekEnd)));
+  const logByDate = new Map(logs.map((row) => [row.date, row]));
+  const sleepByDate = new Map(sleepRows.map((row) => [row.date, row]));
+
+  const days = eachDateInRange(weekStart, weekEnd).map((isoDate) => {
+    const weekday = weekdayIndex(isoDate);
+    const travelActive = Boolean(activeTravelRange(ranges, isoDate));
+    const variant = travelActive ? "travel" : "home";
+    const plan =
+      userPlans.find((row) => row.weekday === weekday && row.variant === variant) ??
+      userPlans.find((row) => row.weekday === weekday && row.variant === "home");
+    const planned = Boolean(plan && plan.kind !== "rest");
+    const sleep = sleepByDate.get(isoDate);
+    return {
+      date: isoDate,
+      weekday,
+      title: plan?.title ?? "—",
+      kind: plan?.kind ?? "rest",
+      planned,
+      completed: logByDate.get(isoDate)?.workoutCompleted ?? false,
+      kneePain: sleep?.kneePain ?? null,
+      sleepHours: sleep ? sleepHours(sleep.bedtime, sleep.wakeTime) : null,
+      sleepQuality: sleep?.quality ?? null,
+    };
+  });
+
+  const lookbackStart = addDays(weekStart, -56);
+  const rowLogs = await db
+    .select({
+      date: amRowLogs.date,
+      totalTime: rowSessionMetrics.totalTime,
+      distanceMeters: rowSessionMetrics.distanceMeters,
+      avgSplit: rowSessionMetrics.avgSplit,
+      duration: amRowLogs.duration,
+      distance: amRowLogs.distance,
+    })
+    .from(amRowLogs)
+    .leftJoin(rowSessionMetrics, eq(rowSessionMetrics.amRowLogId, amRowLogs.id))
+    .where(
+      and(
+        eq(amRowLogs.userId, userId),
+        gte(amRowLogs.date, lookbackStart),
+        lte(amRowLogs.date, weekEnd),
+      ),
+    )
+    .orderBy(amRowLogs.date);
+
+  const weightHistory = await getWeightPayload(userId, date);
+
+  return {
+    weekStart,
+    weekEnd,
+    days,
+    plannedCount: days.filter((day) => day.planned).length,
+    completedCount: days.filter((day) => day.planned && day.completed).length,
+    rows: rowLogs.map((row) => ({
+      date: row.date,
+      distanceMeters:
+        row.distanceMeters ??
+        (row.distance ? Number(String(row.distance).replace(/[^\d.]/g, "")) || null : null),
+      avgSplit: row.avgSplit,
+      totalTime: row.totalTime ?? row.duration,
+    })),
+    weight: weightHistory.history,
+    sleepLogged: days.filter((day) => day.sleepQuality != null).length,
+  };
 }

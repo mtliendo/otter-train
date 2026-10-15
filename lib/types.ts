@@ -16,22 +16,65 @@ export type TravelRange = {
 
 export type FoodStapleSet = "home" | "road";
 
+export type LoadType = "weight" | "bodyweight";
+export type EffortKind = "reps" | "seconds";
+
 export type PlanExercise = {
   id: number;
+  parentExerciseId: number | null;
   name: string;
   prescription: string | null;
   targetSets: number;
   targetReps: string | null;
   notes: string | null;
   isCircuit: boolean;
+  loadType: LoadType;
+  effort: EffortKind;
 };
 
 export type LoggedSet = {
   id: number;
   setIndex: number;
   weight: number | null;
+  addedWeight: number | null;
+  isBodyweight: boolean;
   reps: number | null;
+  seconds: number | null;
   completed: boolean;
+};
+
+export type WeeklyWeight = {
+  id: number;
+  weekStart: string;
+  weighDate: string;
+  weightLb: number;
+  notes: string | null;
+  rollingAvg4: number | null;
+};
+
+export type RowInterval = {
+  index: number | null;
+  time: string | null;
+  distanceMeters: number | null;
+  split: string | null;
+  spm: number | null;
+};
+
+export type RowSessionMetrics = {
+  totalTime: string | null;
+  distanceMeters: number | null;
+  avgSplit: string | null;
+  avgSpm: number | null;
+  watts: number | null;
+  heartRate: number | null;
+  intervals: RowInterval[];
+  confirmedAt: string | null;
+};
+
+export type RowPhoto = {
+  id: number;
+  url: string;
+  pathname: string;
 };
 
 export type AmRowIntensity = "hard" | "easy";
@@ -59,6 +102,8 @@ export type AmRowPayload = {
     duration: string | null;
     distance: string | null;
   } | null;
+  photos: RowPhoto[];
+  metrics: RowSessionMetrics | null;
 };
 
 export type DayPayload = {
@@ -120,8 +165,19 @@ export type DayPayload = {
   } | null;
   previousByExercise: Record<
     string,
-    { setIndex: number; weight: number | null; reps: number | null }[]
+    {
+      setIndex: number;
+      weight: number | null;
+      addedWeight: number | null;
+      isBodyweight: boolean;
+      reps: number | null;
+      seconds: number | null;
+    }[]
   >;
+  weight: {
+    thisWeek: WeeklyWeight | null;
+    history: WeeklyWeight[];
+  };
   food: {
     totalProtein: number;
     staples: { id: number; name: string; proteinGrams: number; stapleSet: FoodStapleSet }[];
@@ -146,4 +202,34 @@ export type CalendarPayload = {
   year: number;
   month: number;
   days: Record<string, CalendarDayMarks>;
+};
+
+export type ReportDay = {
+  date: string;
+  weekday: number;
+  title: string;
+  kind: string;
+  planned: boolean;
+  completed: boolean;
+  kneePain: number | null;
+  sleepHours: number | null;
+  sleepQuality: number | null;
+};
+
+export type ReportRowPoint = {
+  date: string;
+  distanceMeters: number | null;
+  avgSplit: string | null;
+  totalTime: string | null;
+};
+
+export type ReportPayload = {
+  weekStart: string;
+  weekEnd: string;
+  days: ReportDay[];
+  completedCount: number;
+  plannedCount: number;
+  rows: ReportRowPoint[];
+  weight: WeeklyWeight[];
+  sleepLogged: number;
 };
